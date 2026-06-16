@@ -1,0 +1,47 @@
+---
+name: figma-tokens
+description: Use when creating or resetting token collections such as shadcn, tailwind, spacing, or design-system presets in figma-ds-cli
+---
+
+# Figma Tokens
+
+## Overview
+
+This skill covers token creation commands. Use it when the user wants a token set added to the file.
+
+Interactive entrypoint:
+
+```bash
+fig-start
+```
+
+Command alias:
+
+```bash
+fig='figma-ds-cli'
+```
+
+## When to Use
+
+- User asks for shadcn colors
+- User asks for tailwind colors
+- User asks for design-system tokens
+- User wants variable collections deleted before recreating them
+
+## Commands
+
+```bash
+fig tokens preset shadcn
+fig tokens tailwind
+fig tokens ds
+fig tokens spacing
+fig var delete-all
+fig var delete-all -c "primitives"
+```
+
+## Notes
+
+- `tokens preset shadcn` creates primitive plus semantic tokens with Light and Dark modes.
+- `tokens tailwind` creates the Tailwind palette only.
+- `tokens ds` creates the IDS base system.
+- `var list` does not create anything. It is inspection only.

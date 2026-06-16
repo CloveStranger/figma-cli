@@ -1,0 +1,1520 @@
+{
+  "source": "https://www.figma.com/design/SqrDMO6bbeL9GnwI023hzF/Figma-Basics?node-id=1741-4188&t=g9IGLsxyPgnRsubE-4",
+  "rootId": "1741:4188",
+  "rootName": "AI lab",
+  "exportedAt": "2026-04-01T01:32:10.838Z",
+  "files": [
+    {
+      "file": "exports/ai-lab-1741-4188/setting_two_1@3x.png",
+      "nodeId": "1741:4292",
+      "nodeName": "设置_setting-two 1",
+      "path": "AI lab / AI Lab / top-bar / nav-bar / Frame 2608191 / 设置_setting-two 1",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/rectangle_11574_target@3x.png",
+      "nodeId": "1741:4298",
+      "nodeName": "Rectangle 11574 target",
+      "path": "AI lab / AI Lab / Frame 2608151 / banner / banner_bg_img / Rectangle 11574 target",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x.png",
+      "nodeId": "1741:4473",
+      "nodeName": "修复前",
+      "path": "AI lab / AI Lab / Frame 2608151 / Frame 2608168 / Frame 26086313 / Frame 26086309 / ai art / Group 554 / Mask group / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_2.png",
+      "nodeId": "1741:4474",
+      "nodeName": "修复前",
+      "path": "AI lab / AI Lab / Frame 2608151 / Frame 2608168 / Frame 26086313 / Frame 26086309 / ai art / Group 554 / Mask group / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/ic_ai_filter@3x.png",
+      "nodeId": "1741:4536",
+      "nodeName": "ic_ai filter",
+      "path": "AI lab / AI Lab / Frame 2608151 / Frame 2608168 / Frame 26086313 / Frame 26086310 / Frame 2607976 / ic_ai filter",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/ic_tab_ai_portrait@3x.png",
+      "nodeId": "1741:4723",
+      "nodeName": "ic_tab_ai_portrait",
+      "path": "AI lab / AI Lab / tab组 / tab单个 / ic_tab_ai_portrait",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/tab_ic_mirror@3x.png",
+      "nodeId": "1741:4753",
+      "nodeName": "tab_ic_mirror",
+      "path": "AI lab / AI Lab / tab组 / tab单个 / tab_ic_mirror",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/rectangle_11572.png",
+      "nodeId": "1741:5176",
+      "nodeName": "Rectangle 11572",
+      "path": "AI lab / AI Lab / Frame 2608151 / Frame 2608167 / banner / img / Group 2608007 / Mask group / Frame 260862468 / Rectangle 11572",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "WIDTH",
+        "value": 512
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/rectangle_11570.png",
+      "nodeId": "1741:5177",
+      "nodeName": "Rectangle 11570",
+      "path": "AI lab / AI Lab / Frame 2608151 / Frame 2608167 / banner / img / Group 2608007 / Mask group / Frame 260862468 / Rectangle 11570",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "WIDTH",
+        "value": 512
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/rectangle_11571.png",
+      "nodeId": "1741:5178",
+      "nodeName": "Rectangle 11571",
+      "path": "AI lab / AI Lab / Frame 2608151 / Frame 2608167 / banner / img / Group 2608007 / Mask group / Frame 260862468 / Rectangle 11571",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "WIDTH",
+        "value": 512
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/rectangle_11566.png",
+      "nodeId": "1741:5179",
+      "nodeName": "Rectangle 11566",
+      "path": "AI lab / AI Lab / Frame 2608151 / Frame 2608167 / banner / img / Group 2608007 / Mask group / Frame 260862468 / Rectangle 11566",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "WIDTH",
+        "value": 512
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/rectangle_11567.png",
+      "nodeId": "1741:5180",
+      "nodeName": "Rectangle 11567",
+      "path": "AI lab / AI Lab / Frame 2608151 / Frame 2608167 / banner / img / Group 2608007 / Mask group / Frame 260862468 / Rectangle 11567",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "WIDTH",
+        "value": 512
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/rectangle_11568.png",
+      "nodeId": "1741:5181",
+      "nodeName": "Rectangle 11568",
+      "path": "AI lab / AI Lab / Frame 2608151 / Frame 2608167 / banner / img / Group 2608007 / Mask group / Frame 260862468 / Rectangle 11568",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "WIDTH",
+        "value": 512
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/rectangle_11565.png",
+      "nodeId": "1741:5182",
+      "nodeName": "Rectangle 11565",
+      "path": "AI lab / AI Lab / Frame 2608151 / Frame 2608167 / banner / img / Group 2608007 / Mask group / Frame 260862468 / Rectangle 11565",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "WIDTH",
+        "value": 512
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/rectangle_11564.png",
+      "nodeId": "1741:5183",
+      "nodeName": "Rectangle 11564",
+      "path": "AI lab / AI Lab / Frame 2608151 / Frame 2608167 / banner / img / Group 2608007 / Mask group / Frame 260862468 / Rectangle 11564",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "WIDTH",
+        "value": 512
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/rectangle_11503.png",
+      "nodeId": "1741:5184",
+      "nodeName": "Rectangle 11503",
+      "path": "AI lab / AI Lab / Frame 2608151 / Frame 2608167 / banner / img / Group 2608007 / Mask group / Frame 260862468 / Rectangle 11503",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "WIDTH",
+        "value": 512
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_3.png",
+      "nodeId": "1741:5297",
+      "nodeName": "修复前",
+      "path": "AI lab / AI Lab / Frame 2608151 / Frame 2608162 / Frame 26086313 / Frame 26086309 / ai art / Group 554 / Mask group / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_4.png",
+      "nodeId": "1741:5298",
+      "nodeName": "修复前",
+      "path": "AI lab / AI Lab / Frame 2608151 / Frame 2608162 / Frame 26086313 / Frame 26086309 / ai art / Group 554 / Mask group / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_5.png",
+      "nodeId": "1741:6094",
+      "nodeName": "修复前",
+      "path": "AI lab / AI Lab / Frame 2608151 / Frame 2608162 / Frame 26086313 / Frame 26086309 / ai art / Group 554 / Mask group / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_6.png",
+      "nodeId": "1741:6095",
+      "nodeName": "修复前",
+      "path": "AI lab / AI Lab / Frame 2608151 / Frame 2608162 / Frame 26086313 / Frame 26086309 / ai art / Group 554 / Mask group / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/rectangle_503@3x.png",
+      "nodeId": "1741:6565",
+      "nodeName": "Rectangle 503",
+      "path": "AI lab / home_remove / Frame 260862466 / banner / Rectangle 503",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_7.png",
+      "nodeId": "1741:6566",
+      "nodeName": "水印文字",
+      "path": "AI lab / home_remove / Frame 260862466 / banner / 水印文字",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/image@3x.png",
+      "nodeId": "1741:6567",
+      "nodeName": "image",
+      "path": "AI lab / home_remove / Frame 260862466 / banner / 水印文字 / image",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/image@3x_2.png",
+      "nodeId": "1741:6568",
+      "nodeName": "image",
+      "path": "AI lab / home_remove / Frame 260862466 / banner / 水印文字 / image",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/image@3x_3.png",
+      "nodeId": "1741:6569",
+      "nodeName": "image",
+      "path": "AI lab / home_remove / Frame 260862466 / banner / 水印文字 / image",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_8.png",
+      "nodeId": "1741:6588",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_9.png",
+      "nodeId": "1741:6589",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_10.png",
+      "nodeId": "1741:6591",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_11.png",
+      "nodeId": "1741:6592",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_12.png",
+      "nodeId": "1741:6593",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_13.png",
+      "nodeId": "1741:6597",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_14.png",
+      "nodeId": "1741:6598",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_15.png",
+      "nodeId": "1741:6601",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_16.png",
+      "nodeId": "1741:6602",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_17.png",
+      "nodeId": "1741:6604",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_18.png",
+      "nodeId": "1741:6605",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_19.png",
+      "nodeId": "1741:6607",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / remove / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_20.png",
+      "nodeId": "1741:6611",
+      "nodeName": "去物后",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / remove / 去物后",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_21.png",
+      "nodeId": "1741:6616",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_22.png",
+      "nodeId": "1741:6617",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_23.png",
+      "nodeId": "1741:6619",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_24.png",
+      "nodeId": "1741:6620",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_25.png",
+      "nodeId": "1741:6622",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / remove / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_26.png",
+      "nodeId": "1741:6623",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / remove / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_27.png",
+      "nodeId": "1741:6627",
+      "nodeName": "去物后",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / remove / 去物后",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_28.png",
+      "nodeId": "1741:6631",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_29.png",
+      "nodeId": "1741:6632",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/remove_text@3x.png",
+      "nodeId": "1741:6675",
+      "nodeName": "remove text",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / remove text",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_30.png",
+      "nodeId": "1741:6731",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_31.png",
+      "nodeId": "1741:6732",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_32.png",
+      "nodeId": "1741:6734",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_33.png",
+      "nodeId": "1741:6735",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_34.png",
+      "nodeId": "1741:6737",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_35.png",
+      "nodeId": "1741:6739",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / Mask group / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_36.png",
+      "nodeId": "1741:6740",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / Mask group / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_37.png",
+      "nodeId": "1741:6744",
+      "nodeName": "去物后",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / 去物后",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_38.png",
+      "nodeId": "1741:6751",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_39.png",
+      "nodeId": "1741:6752",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_40.png",
+      "nodeId": "1741:6754",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_41.png",
+      "nodeId": "1741:6755",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_42.png",
+      "nodeId": "1741:6757",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_43.png",
+      "nodeId": "1741:6759",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / Mask group / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_44.png",
+      "nodeId": "1741:6760",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / Mask group / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_45.png",
+      "nodeId": "1741:6764",
+      "nodeName": "去物后",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / 去物后",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_46.png",
+      "nodeId": "1741:6773",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / ai art / Group 554 / Mask group / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_47.png",
+      "nodeId": "1741:6774",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / ai art / Group 554 / Mask group / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_48.png",
+      "nodeId": "1741:6802",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / Group 554 / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_49.png",
+      "nodeId": "1741:6807",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_50.png",
+      "nodeId": "1741:6808",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_51.png",
+      "nodeId": "1741:6810",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_52.png",
+      "nodeId": "1741:6811",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_53.png",
+      "nodeId": "1741:6813",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_54.png",
+      "nodeId": "1741:6817",
+      "nodeName": "去物后",
+      "path": "AI lab / home_remove / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / 去物后",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/rectangle_503@3x_2.png",
+      "nodeId": "1741:6988",
+      "nodeName": "Rectangle 503",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / banner / Rectangle 503",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_55.png",
+      "nodeId": "1741:6989",
+      "nodeName": "水印文字",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / banner / 水印文字",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/image@3x_4.png",
+      "nodeId": "1741:6990",
+      "nodeName": "image",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / banner / 水印文字 / image",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/image@3x_5.png",
+      "nodeId": "1741:6991",
+      "nodeName": "image",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / banner / 水印文字 / image",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/image@3x_6.png",
+      "nodeId": "1741:6992",
+      "nodeName": "image",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / banner / 水印文字 / image",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_56.png",
+      "nodeId": "1741:7011",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_57.png",
+      "nodeId": "1741:7012",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_58.png",
+      "nodeId": "1741:7014",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_59.png",
+      "nodeId": "1741:7015",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_60.png",
+      "nodeId": "1741:7016",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_61.png",
+      "nodeId": "1741:7020",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_62.png",
+      "nodeId": "1741:7021",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_63.png",
+      "nodeId": "1741:7024",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_64.png",
+      "nodeId": "1741:7025",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_65.png",
+      "nodeId": "1741:7027",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_66.png",
+      "nodeId": "1741:7028",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_67.png",
+      "nodeId": "1741:7030",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / remove / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_68.png",
+      "nodeId": "1741:7034",
+      "nodeName": "去物后",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / remove / 去物后",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_69.png",
+      "nodeId": "1741:7039",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_70.png",
+      "nodeId": "1741:7040",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_71.png",
+      "nodeId": "1741:7042",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_72.png",
+      "nodeId": "1741:7043",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_73.png",
+      "nodeId": "1741:7045",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / remove / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_74.png",
+      "nodeId": "1741:7046",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / remove / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_75.png",
+      "nodeId": "1741:7050",
+      "nodeName": "去物后",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / Frame 2607912 / Frame 2607911 / descratch / descratch / remove / 去物后",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_76.png",
+      "nodeId": "1741:7054",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_77.png",
+      "nodeId": "1741:7055",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/remove_text@3x_2.png",
+      "nodeId": "1741:7098",
+      "nodeName": "remove text",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / remove text",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_78.png",
+      "nodeId": "1741:7154",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_79.png",
+      "nodeId": "1741:7155",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_80.png",
+      "nodeId": "1741:7157",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_81.png",
+      "nodeId": "1741:7158",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_82.png",
+      "nodeId": "1741:7160",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_83.png",
+      "nodeId": "1741:7162",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / Mask group / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_84.png",
+      "nodeId": "1741:7163",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / Mask group / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_85.png",
+      "nodeId": "1741:7167",
+      "nodeName": "去物后",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / 去物后",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_86.png",
+      "nodeId": "1741:7174",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_87.png",
+      "nodeId": "1741:7175",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_88.png",
+      "nodeId": "1741:7177",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_89.png",
+      "nodeId": "1741:7178",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_90.png",
+      "nodeId": "1741:7180",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_91.png",
+      "nodeId": "1741:7182",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / Mask group / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_92.png",
+      "nodeId": "1741:7183",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / Mask group / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_93.png",
+      "nodeId": "1741:7187",
+      "nodeName": "去物后",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / 去物后",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_94.png",
+      "nodeId": "1741:7196",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / ai art / Group 554 / Mask group / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_95.png",
+      "nodeId": "1741:7197",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / ai art / Group 554 / Mask group / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_96.png",
+      "nodeId": "1741:7225",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / Group 554 / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_97.png",
+      "nodeId": "1741:7230",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_98.png",
+      "nodeId": "1741:7231",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_99.png",
+      "nodeId": "1741:7233",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_100.png",
+      "nodeId": "1741:7234",
+      "nodeName": "修复前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / 修复前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_101.png",
+      "nodeId": "1741:7236",
+      "nodeName": "去物前",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / 去物前",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    },
+    {
+      "file": "exports/ai-lab-1741-4188/node_export@3x_102.png",
+      "nodeId": "1741:7240",
+      "nodeName": "去物后",
+      "path": "AI lab / home_remove / Frame 260863041 / Frame 260862466 / Frame 2607913 / tools / Frame 2608248 / Frame 26086165 / Frame 2607911 / descratch / descratch / remove / 去物后",
+      "format": "PNG",
+      "suffix": "",
+      "constraint": {
+        "type": "SCALE",
+        "value": 3
+      }
+    }
+  ]
+}

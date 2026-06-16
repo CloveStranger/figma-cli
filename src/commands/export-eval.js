@@ -1,7 +1,9 @@
 // Commands: export-eval (extracted from index.js)
 import chalk from 'chalk';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { FigmaClient } from '../figma-client.js';
+import { buildExportFilename, ensureUniqueFilename, parseFigmaNodeUrl } from '../export-settings.js';
 import {
   program,
   checkConnection,
@@ -89,6 +91,171 @@ return {
       : options.output;
     writeFileSync(outputFile, buffer);
     console.log(chalk.green('✓'), `Exported ${result.name} (${result.width}x${result.height}) to ${outputFile}`);
+  });
+
+exp
+  .command('subtree <nodeOrUrl>')
+  .description('Find descendants with export settings and export them using those settings')
+  .option('-o, --output-dir <dir>', 'Output directory (default: exports/<root-name>)')
+  .action(async (nodeOrUrl, options) => {
+    await checkConnection();
+    const client = new FigmaClient();
+
+    const parsed = nodeOrUrl.startsWith('http://') || nodeOrUrl.startsWith('https://')
+      ? parseFigmaNodeUrl(nodeOrUrl)
+      : { fileKey: null, pageName: null, nodeId: nodeOrUrl.replace(/-/g, ':') };
+
+    if (!parsed.nodeId) {
+      console.error(chalk.red('✗'), 'Missing node id');
+      process.exit(1);
+    }
+
+    try {
+      await client.connect(parsed.pageName || null);
+
+      if (parsed.fileKey) {
+        const currentFileKey = await client.eval('figma.fileKey');
+        if (currentFileKey && currentFileKey !== parsed.fileKey) {
+          console.error(chalk.red('✗'), `Open file key ${currentFileKey} does not match URL file key ${parsed.fileKey}`);
+          process.exit(1);
+        }
+      }
+
+      const scanCode = `(async () => {
+const root = await figma.getNodeByIdAsync(${JSON.stringify(parsed.nodeId)});
+if (!root) return { error: 'Node not found: ${parsed.nodeId}' };
+
+function cloneConstraint(constraint) {
+  if (!constraint || typeof constraint !== 'object') return null;
+  return { type: constraint.type, value: constraint.value };
+}
+
+function cloneSetting(setting) {
+  return {
+    format: setting.format,
+    suffix: setting.suffix || '',
+    constraint: cloneConstraint(setting.constraint),
+    contentsOnly: !!setting.contentsOnly,
+    useAbsoluteBounds: !!setting.useAbsoluteBounds
+  };
+}
+
+const items = [];
+const stack = [{ node: root, path: [root.name || root.id] }];
+
+while (stack.length > 0) {
+  const current = stack.pop();
+  const node = current.node;
+  const exportSettings = Array.isArray(node.exportSettings) ? node.exportSettings : [];
+  if (exportSettings.length > 0 && 'exportAsync' in node) {
+    items.push({
+      nodeId: node.id,
+      nodeName: node.name || '',
+      path: current.path.join(' / '),
+      width: Math.round(node.width || 0),
+      height: Math.round(node.height || 0),
+      settings: exportSettings.map(cloneSetting)
+    });
+  }
+
+  if ('children' in node && Array.isArray(node.children)) {
+    for (let index = node.children.length - 1; index >= 0; index -= 1) {
+      const child = node.children[index];
+      stack.push({
+        node: child,
+        path: current.path.concat(child.name || child.id)
+      });
+    }
+  }
+}
+
+return {
+  rootId: root.id,
+  rootName: root.name || root.id,
+  count: items.length,
+  items
+};
+})()`;
+
+      const scanResult = await client.eval(scanCode);
+      if (scanResult.error) {
+        console.error(chalk.red('✗'), scanResult.error);
+        process.exit(1);
+      }
+
+      if (!scanResult.items || scanResult.items.length === 0) {
+        console.log(chalk.yellow('!'), `No export settings found under ${scanResult.rootName} (${scanResult.rootId})`);
+        return;
+      }
+
+      const safeRootName = scanResult.rootName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || scanResult.rootId.replace(/:/g, '-');
+      const outputDir = options.outputDir || join('exports', safeRootName);
+      mkdirSync(outputDir, { recursive: true });
+
+      const manifest = [];
+      const usedNames = new Set();
+      for (const item of scanResult.items) {
+        for (const setting of item.settings) {
+          const exportCode = `(async () => {
+const node = await figma.getNodeByIdAsync(${JSON.stringify(item.nodeId)});
+if (!node) return { error: 'Node not found: ${item.nodeId}' };
+if (!('exportAsync' in node)) return { error: 'Node cannot be exported: ${item.nodeId}' };
+const setting = ${JSON.stringify(setting)};
+const bytes = await node.exportAsync(setting);
+return {
+  nodeId: node.id,
+  nodeName: node.name || '',
+  format: setting.format,
+  suffix: setting.suffix || '',
+  constraint: setting.constraint || null,
+  bytes: Array.from(bytes)
+};
+})()`;
+
+          const exported = await client.eval(exportCode);
+          if (exported.error) {
+            console.error(chalk.red('✗'), `${item.nodeName || item.nodeId}: ${exported.error}`);
+            process.exit(1);
+          }
+
+          const filename = ensureUniqueFilename(buildExportFilename({
+            nodeName: item.nodeName,
+            format: exported.format,
+            suffix: exported.suffix,
+            constraint: exported.constraint
+          }), usedNames);
+          const filePath = join(outputDir, filename);
+          writeFileSync(filePath, Buffer.from(exported.bytes));
+          manifest.push({
+            file: filePath,
+            nodeId: item.nodeId,
+            nodeName: item.nodeName,
+            path: item.path,
+            format: exported.format,
+            suffix: exported.suffix || '',
+            constraint: exported.constraint
+          });
+          console.log(chalk.green('✓'), `${item.nodeName || item.nodeId} → ${filePath}`);
+        }
+      }
+
+      const manifestPath = join(outputDir, 'manifest.json');
+      writeFileSync(manifestPath, JSON.stringify({
+        source: nodeOrUrl,
+        rootId: scanResult.rootId,
+        rootName: scanResult.rootName,
+        exportedAt: new Date().toISOString(),
+        files: manifest
+      }, null, 2));
+
+      console.log(chalk.green('✓'), `Exported ${manifest.length} file(s) to ${outputDir}`);
+      console.log(chalk.gray(' '), `Manifest: ${manifestPath}`);
+    } finally {
+      client.close();
+    }
   });
 
 exp
@@ -391,4 +558,3 @@ program
     checkConnection();
     figmaUse(command.join(' '));
   });
-
