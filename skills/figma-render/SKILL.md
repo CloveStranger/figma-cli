@@ -35,7 +35,10 @@ fig create rect "Card" -w 320 -h 200 --fill "#fff" --radius 12
 fig create autolayout "Card" -d col -g 16 -p 24 --fill "#fff"
 fig create icon lucide:star -s 24 -c "#f59e0b"
 fig render '<Frame name="Card" w={320} h={180} bg="#fff" rounded={16}><Text>Title</Text></Frame>'
-fig render-batch '["<Frame ... />","<Frame ... />"]' -d row -g 40
+fig render '<Frame name="Card">...</Frame>' --as-component --verify
+fig render '<Frame bg="var:card">...</Frame>' --collection figma --verify
+fig render-batch '["<Frame ... />","<Frame ... />"]' -d row -g 40 --verify
+fig render-batch '["<Frame ... />","<Frame ... />"]' --as-component --collection figma
 ```
 
 ## Layout Updates
@@ -53,16 +56,24 @@ fig gap 16
 fig arrange -g 100
 ```
 
+## High-Value Options
+
+- Use `--verify` to replace a separate `fig verify` roundtrip.
+- Use `--as-component` when the rendered frame should immediately become a component.
+- Use `--collection <name>` when the user names a variable collection or brand system.
+- Use `--keep-wrapper` only when the outer wrapper is intentional; otherwise the renderer may split layout-only wrappers into independent canvas items.
+
 ## Safe Mode Rule
 
-Do not use `fig render-batch` for components with text in Safe Mode. Use a single `fig eval` with native Figma API instead.
+`render` and `render-batch` work in Safe Mode, including text. If a complex batch times out, split it into smaller renders. Use `eval` only for native Figma API operations that JSX cannot express.
 
 ## Component Creation Rules
 
 - Check current page positions before creating large new groups to avoid overlap.
 - Never delete existing nodes unless the user asked for it.
-- After creating anything visual, run `fig verify`.
+- After creating anything visual, run `fig verify --measure` or pass `--verify` to render.
 - For complex multi-element components, prefer a single `eval` so the whole structure is built in one API call.
+- When the user asks for N cards/buttons/items, create N independent top-level nodes with `render-batch`, not one wrapper frame containing N repeated children.
 
 ## Auto-Layout Rules For Text Components
 
@@ -70,3 +81,4 @@ Do not use `fig render-batch` for components with text in Safe Mode. Use a singl
 2. Child content frames should use `layoutSizingHorizontal = 'FILL'` after `appendChild`.
 3. Text nodes should also use `layoutSizingHorizontal = 'FILL'` after `appendChild`.
 4. In Safe Mode, load fonts first in `eval`.
+5. In JSX, give the parent and every wrapping text node `w="fill"` when text must wrap.

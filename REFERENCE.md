@@ -185,12 +185,15 @@ node src/index.js slot add "slot-id" --text "Hello"  # Add text
 ```bash
 node src/index.js export css                   # Variables as CSS
 node src/index.js export tailwind              # Tailwind config
+node src/index.js export dtcg tokens.json      # W3C Design Tokens JSON
 node src/index.js export screenshot -o out.png # Screenshot (selection or page)
 node src/index.js export screenshot -s 2 -f png # 2x scale PNG
 node src/index.js export screenshot -f svg     # SVG format
 node src/index.js export node "1:234" -o card.png         # Export node by ID
 node src/index.js export node "1:234" -s 2 -f png         # 2x scale PNG
 node src/index.js export node "1:234" -f svg -o card.svg  # SVG export
+node src/index.js export subtree "1:234"                  # Descendants with export settings
+node src/index.js export subtree "https://www.figma.com/design/FILE/Page?node-id=1-234" -o exports/app-icons
 node src/index.js export-jsx "1:234"           # Export as JSX
 node src/index.js export-jsx "1:234" -o Card.jsx --pretty
 node src/index.js export-storybook "1:234"     # Storybook stories

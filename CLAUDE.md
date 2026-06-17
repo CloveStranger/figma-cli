@@ -18,7 +18,8 @@ CLI that controls Figma Desktop directly. No API key needed.
 | "list variables" | `figma-cli var list` |
 | "find nodes named X" | `figma-cli find "X"` |
 | "what's on canvas" | `figma-cli canvas info` |
-| "export as PNG/SVG" | `figma-cli export png` |
+| "export as PNG/SVG" | `figma-cli export node "ID" --format png --output asset.png` |
+| "export configured assets under a node / URL" | `figma-cli export subtree "ID_OR_FIGMA_URL" --output-dir exports/name` |
 | "extract gradient from image" / "rebuild this gradient" | `figma-cli gradient extract <image>` |
 | "apply image gradient to a frame" | `figma-cli gradient extract <image> --apply-to <nodeId>` |
 | "match this mesh / blossom / aurora background" | `figma-cli gradient extract <image> --mode mesh --apply-to <frameId>` |
@@ -44,7 +45,7 @@ CLI that controls Figma Desktop directly. No API key needed.
 | "create a slot" | `figma-cli slot create "Name"` |
 | "list slots" | `figma-cli slot list` |
 | "reset slot" | `figma-cli slot reset` |
-| "verify creation" | `figma-cli verify` (or render with `--verify` for one roundtrip) |
+| "verify creation" | `figma-cli verify "ID" --measure` (or render with `--verify` for one roundtrip) |
 | "undo that" / "remove what you just made" | `figma-cli undo` |
 | "check contrast" | `figma-cli a11y contrast` |
 | "color blindness sim" | `figma-cli a11y vision` |
@@ -70,7 +71,7 @@ CLI that controls Figma Desktop directly. No API key needed.
 5. **Convert to components:** `node to-component` after creation
 6. **Never show terminal commands to users.** Run silently, give friendly feedback.
 7. **NEVER delete existing nodes** - users may have components they want to keep!
-8. **Always verify after creating:** `figma-cli verify "NODE_ID"`
+8. **Always verify after creating:** `figma-cli verify "NODE_ID" --measure`
 
 ### 🎨 THEMED vs SHADCN (read the user's intent)
 

@@ -44,6 +44,8 @@ fig connect --safe
 
 ## Safe Mode Constraints
 
-- All commands still go through the daemon.
-- `render-batch` does not render text correctly in Safe Mode.
-- For text-heavy components in Safe Mode, use native Figma API via `eval`.
+- Safe Mode uses the daemon plus the FigCli plugin instead of patching Figma Desktop.
+- The user must keep the FigCli plugin running for the session.
+- `render` and `render-batch` support text in Safe Mode.
+- If a complex `render-batch` times out, split it into smaller renders.
+- Use native Figma API via `eval` only when JSX cannot express the needed operation.

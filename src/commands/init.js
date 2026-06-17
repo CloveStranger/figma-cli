@@ -32,6 +32,8 @@ terminal. Open Figma Desktop, then \`figma-cli connect\` once per session.
 - Pin a named collection when the user names one: \`render-batch ... --collection figma\`.
 - Import a system: \`figma-cli import tailwind.config.js | globals.css | tokens.json\`.
 - Export the open file's system: \`figma-cli extract\` → DESIGN.md.
+- Export DTCG tokens: \`figma-cli export dtcg tokens.json\`.
+- Export configured assets under a node or URL: \`figma-cli export subtree <node-or-url> --output-dir exports/name\`.
 
 ## JSX cheatsheet (render)
 - Layout: \`flex="row|col" gap={16} p={24} px py pt pr pb pl justify="center|between" items="center"\`
@@ -60,6 +62,9 @@ figma-cli render-batch '[ "<Frame>", ... ]' --direction row
 figma-cli shadcn add button --count 3  # N distinct shadcn primitives
 figma-cli node to-component "<id>"     # promote to a component
 figma-cli verify "<id>" --measure      # screenshot + dimensions
+figma-cli verify "<id>" --measure --save /tmp/figma-verify.png
+figma-cli export subtree "<id-or-url>" --output-dir exports/name
+figma-cli export dtcg tokens.json
 figma-cli a11y audit                   # contrast / touch / text checks
 \`\`\`
 `;

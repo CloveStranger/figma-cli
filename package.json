@@ -11,7 +11,10 @@
   },
   "files": [
     "src",
-    "plugin"
+    "plugin",
+    "AGENTS.md",
+    "AGENT.md",
+    "skills"
   ],
   "keywords": [
     "figma",
