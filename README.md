@@ -1,4 +1,4 @@
-# figma-ds-cli
+# figma-cli
 
 <p align="center">
   <a href="https://intodesignsystems.com"><img src="https://img.shields.io/badge/Into_Design_Systems-intodesignsystems.com-ff6b35" alt="Into Design Systems"></a>
@@ -20,7 +20,7 @@
 
 ## What is this?
 
-figma-ds-cli lets an **AI assistant build directly in your Figma Desktop**, while you talk to it in normal language.
+figma-cli lets an **AI assistant build directly in your Figma Desktop**, while you talk to it in normal language.
 
 You don't run commands or write code. You open **Claude** in this project and say things like:
 
@@ -31,7 +31,7 @@ You don't run commands or write code. You open **Claude** in this project and sa
 
 Claude does the rest. Figma updates in real time, in front of you.
 
-It works with real, editable Figma , actual frames, components, variants and variables , not a flat image. And it runs **locally**: no API key, nothing sent to a cloud service.
+It works with real, editable Figma , actual frames, components, variants and variables , not a flat image. And it runs **locally**: no API key, nothing sent to a cloud service. No rate limits either ([why](#figma-cli-vs-the-mcp-servers-the-question-i-get-asked-most)).
 
 ---
 
@@ -102,7 +102,7 @@ Cursor builds it in Figma instantly.
 
 ## How it connects to Figma: Yolo vs Safe mode
 
-figma-ds-cli talks to your Figma Desktop in one of two ways. Claude picks one during setup , here's what they mean, so you know what's happening:
+figma-cli talks to your Figma Desktop in one of two ways. Claude picks one during setup , here's what they mean, so you know what's happening:
 
 ### ⚡ Yolo Mode , the default, recommended
 - **Fully automatic.** Claude sets it up, you do nothing.
@@ -128,12 +128,12 @@ People keep asking how figma-cli differs from **Figma's official MCP** and from 
 |---|---|---|
 | **How it connects** | CDP → your local Figma Desktop | Figma REST API (cloud) |
 | **Figma token** | not needed | required (`figd_…`) |
-| **Figma rate limit** | **none** — there are no API calls to throttle | yes — can bottleneck heavy automation / AI on Free or Starter plans |
+| **Figma rate limit** | **none** (no API calls to throttle) | yes (as low as 6 read calls/month per seat) |
 | **Works offline** | yes | no |
 | **Setup** | one `connect` command | token + plugin/bridge + (for some) port wrangling |
 
 ### Why "no rate limit" is a real, structural advantage
-Figma's APIs are rate-limited, and on Free or Starter plans those limits can become a bottleneck for large-scale automation or AI workflows. Any tool built on that API — Figma's own MCP included — runs into the same ceiling. figma-cli sidesteps it entirely because it never calls the API: it drives Figma Desktop locally over CDP.
+Figma's APIs are rate-limited, and any tool built on them (Figma's official MCP included) runs into the same ceiling. The official MCP caps the tools that *read* from Figma by seat: just **6 calls per month** on a View/Collab seat, and **200 to 600 per day** (10 to 20 per minute) even on a paid Dev/Full seat ([source](https://developers.figma.com/docs/figma-mcp-server/rate-limits-access)). AI agents read constantly, so they burn through those fast, then sit in 429 cooldowns. figma-cli sidesteps all of it because it never calls the API: it drives Figma Desktop locally over CDP. No token, no 429, works offline.
 
 ### The quieter advantage: it costs your AI far fewer tokens
 figma-cli's commands are terse and there are **no large tool schemas loaded into the AI's context**. Driving an MCP server, by contrast, loads its instructions + dozens of tool schemas and returns verbose JSON. Measured like-for-like in one session (tokens ≈ bytes ÷ 4, approximate):
@@ -203,13 +203,16 @@ The reverse also works. Open any Figma file , yours, a client's, a Community fil
 
 > "Export the design system as markdown."
 
-figma-ds-cli scans **every page** (no truncation, even on 100k+ node files) and writes a `DESIGN.md` with the full token map: colors ranked by usage, the type scale, spacing, radii, shadows, plus a variant matrix for every component set (e.g. Button: variant × size × state, with all values). The file round-trips , `figma-cli import` reads it back into variables in any other file.
+figma-cli scans **every page** (no truncation, even on 100k+ node files) and writes a `DESIGN.md` with the full token map: colors ranked by usage, the type scale, spacing, radii, shadows, plus a variant matrix for every component set (e.g. Button: variant × size × state, with all values). If the file defines real **variable collections**, it captures those too , every variable with its real name, all its modes (light/dark, high-contrast, whatever the system uses) and its alias chains , not just a palette sampled from fills. The file round-trips , `figma-cli import` recreates those collections faithfully (modes and aliases included) in any other file.
+
+Components aren't just documented, they're addressable: `figma-cli spec "Button"` reads the markdown in code (zero model tokens) and returns just that one component's spec plus its reuse handle, so an agent pulls in exactly what it needs on demand instead of loading the whole file.
 
 What it's for:
 
 - **Feed your design system to AI tools** , Claude, Cursor, Copilot read DESIGN.md and build UI that actually matches your Figma file
+- **Reuse, don't rebuild** , every component in the exported DESIGN.md carries a *reuse handle*. Ask for a component that already exists and the AI drops a real instance of it (`figma-cli instantiate "Button"`) instead of cloning a one-off copy, so your file stays consistent with the source system
 - **Document a design system** , one command instead of hand-written token tables
-- **Transfer tokens between files** , extract from file A, import into file B
+- **Transfer a whole variable system between files** , extract from file A, import into file B and its collections come back with every mode and alias intact
 - **Learn from Community files** , extract Primer, Material or any public system and see exactly how it's built
 
 Huge files stay usable: when the structure trees alone would blow an AI context window, they're split into per-page files automatically and the main DESIGN.md stays small enough to load whole (Primer Web: 67 pages, 124k nodes → a 35k-token main file).
@@ -218,7 +221,7 @@ Huge files stay usable: when the structure trees alone would blow an AI context 
 
 ## Works offline / with local AI
 
-Prefer to keep everything on your machine? figma-ds-cli also works with **local LLMs** (via LM Studio or Ollama) , fully offline, no cloud, no key. Ask Claude to "set up the local LLM agent" and it'll walk you through it.
+Prefer to keep everything on your machine? figma-cli also works with **local LLMs** (via LM Studio or Ollama) , fully offline, no cloud, no key. Ask Claude to "set up the local LLM agent" and it'll walk you through it.
 
 ---
 
@@ -291,7 +294,7 @@ You don't need any of this to use the tool , it's here for tinkerers.
 
 ## Why this exists
 
-Figma plugins are slow to build and tied to one UI. AI assistants are great at *describing intent* but need a clean way to act on Figma. figma-ds-cli is the bridge: it talks to Figma Desktop directly, so you can design by conversation , locally, with no API key and no cloud roundtrip.
+Figma plugins are slow to build and tied to one UI. AI assistants are great at *describing intent* but need a clean way to act on Figma. figma-cli is the bridge: it talks to Figma Desktop directly, so you can design by conversation , locally, with no API key and no cloud roundtrip.
 
 **You design. The AI builds. Figma updates.**
 

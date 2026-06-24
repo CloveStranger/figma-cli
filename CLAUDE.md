@@ -15,6 +15,8 @@ CLI that controls Figma Desktop directly. No API key needed.
 | "create cards/buttons" | `render-batch` + `node to-component` |
 | "create a rectangle/frame" | `figma-cli render '<Frame>...'` |
 | "convert to component" | `figma-cli node to-component "ID"` |
+| "use the existing X component" / "don't rebuild, instance it" | `figma-cli instantiate "X"` |
+| "what component already exists for X" | `figma-cli spec X` (shows the reuse handle) |
 | "list variables" | `figma-cli var list` |
 | "find nodes named X" | `figma-cli find "X"` |
 | "what's on canvas" | `figma-cli canvas info` |
@@ -145,6 +147,17 @@ That one line is correct, atomic, and produces 4 independent buttons whose `var:
 - Bulk reads (querying current state)
 - Operations that mutate existing nodes (not creation)
 
+### ♻️ REUSE BEFORE REBUILD (extracted systems)
+
+When a DESIGN.md was produced by `figma-cli extract`, every component carries a
+**reuse handle**. If the user asks to "use" / "add" / "drop in" a component that
+already exists in that system, do NOT re-render it — instance it:
+
+- `figma-cli spec "Button"` shows the handle and prints the exact command.
+- `figma-cli instantiate "Button"` drops a real instance (same-file via node id,
+  cross-file via library key). This keeps the design consistent with the source
+  system instead of producing a divergent hand-built copy.
+
 ---
 
 ## AI Verification
@@ -157,7 +170,11 @@ figma-cli verify "123:456"    # Screenshot of specific node
 figma-cli verify "123:456" --measure   # + real w/h of the node and its children
 ```
 
-Returns JSON with base64 image (max 2000px). This is for internal AI checks, not shown to users.
+By default `verify` SAVES the PNG to `/tmp/figma-verify-{id}.png` (max 2000px) and
+returns only `{id,name,width,height,saved}` — lean on tokens. Read that PNG back if
+you need to see it (it enters context as a real image, not raw base64 text). Pass
+`--base64` only when a script genuinely needs the inline data. This is for internal
+AI checks, not shown to users.
 
 **`--measure`** adds a `measure` tree (real unscaled w/h, layout mode, FILL/HUG/FIXED
 sizing for the node + up to 3 levels of children). Use it to catch size bugs by
@@ -172,8 +189,9 @@ Big tool output accumulates in the conversation; when context fills, Claude Code
 compacts it and DETAILS get lost (exact node IDs, values, what was tried), which
 shows up as confidently-wrong recall ("hallucinated" IDs). Keep context lean:
 
-- **Always `verify --save <path>`** for visual checks — writes the PNG to disk and
-  returns just dimensions, instead of dumping a base64 image (~2k tokens) into context.
+- **`verify` saves the PNG to disk by default** and returns just dimensions, instead
+  of dumping a base64 image (thousands of tokens) into context. Use `--save <path>`
+  only to pick a custom path; avoid `--base64` unless a script needs the inline data.
 - **Pipe bulky command output to `wc -c` / a file** when you only need the size or
   a grep, not the whole thing (`… | grep -E "✓|✗"`, `… > /tmp/out.txt; wc -l`).
 - **Prefer the terse commands**: `spec --check` returns a short verdict; `daemon
@@ -217,10 +235,16 @@ figma-cli var delete-all -c "primitives"  # Only specific collection
 ## DESIGN.md Export (extract)
 
 `figma-cli extract [output.md]` scans the open file and writes a DESIGN.md
-(same 11-section format the importer reads — full roundtrip).
+(same 12-section format the importer reads — full roundtrip).
 
 - Default = ALL pages, ALL sections. Use `--pages "Button,ActionMenu"` (substring
   match) or `--selection` to scope; `--sections tokens` for tokens-only.
+- **Variables:** if the file defines real variable collections, extract captures
+  them (true names, all modes incl. light/dark/high-contrast, alias chains) into
+  a `## Variables` section + the JSON token block — not just the fills-sampled
+  palette. `figma-cli import` recreates those collections (modes + aliases) in
+  the target file. Captured in chunks so large systems (1000s of vars) don't
+  time out. `--sections variables` for variables-only.
 - **Auto-split:** when the structure trees alone exceed ~50k tokens (huge files
   like Primer Web), they move to `DESIGN-structure/` automatically and the main
   file stays AI-context-sized. `--split` forces this, `--no-split` prevents it.
@@ -533,7 +557,7 @@ figma-cli variants from 5:10,5:11 --property State --values Default,Hover
 3. Run `figma-cli connect` (or `--safe`)
 4. When connected, say: "Connected! What would you like to create?"
 
-If permission error (macOS): System Settings > Privacy > Full Disk Access > Add Terminal
+If permission error (macOS 13+): System Settings > Privacy & Security > App Management > enable your terminal (Full Disk Access alone does not allow patching Figma). Or use Safe Mode: `figma-cli connect --safe`
 
 ---
 

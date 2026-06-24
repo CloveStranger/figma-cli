@@ -19,6 +19,101 @@ export function listPagesCode() {
 }
 
 /**
+ * Eval snippet: capture every LOCAL variable collection of the open file —
+ * names, modes, and each variable's per-mode resolved value. This is the
+ * authoritative token layer (a system's real semantic tokens, e.g.
+ * `button-primary-bgColor-rest` with light/dark modes), which the derived
+ * color palette can only approximate by sampling fills.
+ *
+ * COLOR values resolve to hex (8-digit when alpha < 1), FLOAT/STRING/BOOLEAN
+ * pass through, and VARIABLE_ALIAS values are captured as { alias: <id> } for
+ * Node-side name resolution. Self-contained for the plugin sandbox.
+ */
+/**
+ * Shared eval helpers spliced into the variable-reading IIFEs: hex(),
+ * aliasName() (cached id→name, resolves library/remote refs too), and
+ * readVarValues(v, modes) → { modeName: value } applying the COLOR→hex /
+ * alias / passthrough rules. Single-sourced so the one-shot and chunked
+ * paths can never drift.
+ */
+const VAR_EVAL_HELPERS = `
+    const hex = (c) => '#' + [c.r, c.g, c.b].map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join('') + (c.a != null && c.a < 1 ? Math.round(c.a * 255).toString(16).padStart(2, '0') : '');
+    const nameCache = new Map();
+    const aliasName = async (id) => {
+      if (nameCache.has(id)) return nameCache.get(id);
+      let name = id;
+      try { const t = await figma.variables.getVariableByIdAsync(id); if (t) name = t.name; } catch (e) {}
+      nameCache.set(id, name);
+      return name;
+    };
+    const readVarValues = async (v, modes) => {
+      const values = {};
+      for (const m of modes) {
+        const raw = v.valuesByMode[m.id];
+        if (raw == null) continue;
+        if (typeof raw === 'object' && raw.type === 'VARIABLE_ALIAS') values[m.name] = { alias: await aliasName(raw.id) };
+        else if (v.resolvedType === 'COLOR' && raw && typeof raw === 'object' && 'r' in raw) values[m.name] = hex(raw);
+        else values[m.name] = raw;
+      }
+      return values;
+    };`;
+
+export function variablesCode() {
+  return `(async () => {${VAR_EVAL_HELPERS}
+    let cols = [];
+    try { cols = await figma.variables.getLocalVariableCollectionsAsync(); } catch (e) { return JSON.stringify([]); }
+    const out = [];
+    for (const col of cols) {
+      const modes = col.modes.map(m => ({ id: m.modeId, name: m.name }));
+      const variables = [];
+      for (const id of col.variableIds) {
+        let v;
+        try { v = await figma.variables.getVariableByIdAsync(id); } catch (e) { continue; }
+        if (!v) continue;
+        variables.push({ id: v.id, name: v.name, type: v.resolvedType, values: await readVarValues(v, modes) });
+      }
+      out.push({ id: col.id, name: col.name, modes, variables });
+    }
+    return JSON.stringify(out);
+  })()`;
+}
+
+/**
+ * Eval snippet: list variable collections WITHOUT reading any values — just
+ * id, name, modes and the variableIds. Tiny payload even for huge systems;
+ * the command then fetches values in bounded chunks (variableChunkCode) so a
+ * 10k-variable library never lands in one oversized/timing-out eval.
+ */
+export function variableCollectionsCode() {
+  return `(async () => {
+    let cols = [];
+    try { cols = await figma.variables.getLocalVariableCollectionsAsync(); } catch (e) { return JSON.stringify([]); }
+    return JSON.stringify(cols.map(c => ({ id: c.id, name: c.name, modes: c.modes.map(m => ({ id: m.modeId, name: m.name })), variableIds: c.variableIds })));
+  })()`;
+}
+
+/**
+ * Eval snippet: read one chunk of variables by explicit id list, for the given
+ * modes ([{ id, name }]). Returns [{ id, name, type, values }]. Self-contained;
+ * the alias name cache is per-chunk (fresh sandbox), which costs a few extra
+ * lookups but keeps each call independent and retryable at a smaller size.
+ */
+export function variableChunkCode(ids, modes) {
+  return `(async () => {${VAR_EVAL_HELPERS}
+    const modes = ${JSON.stringify(modes)};
+    const ids = ${JSON.stringify(ids)};
+    const variables = [];
+    for (const id of ids) {
+      let v;
+      try { v = await figma.variables.getVariableByIdAsync(id); } catch (e) { continue; }
+      if (!v) continue;
+      variables.push({ id: v.id, name: v.name, type: v.resolvedType, values: await readVarValues(v, modes) });
+    }
+    return JSON.stringify(variables);
+  })()`;
+}
+
+/**
  * Eval snippet: walk one page and return its compact node tree.
  * Kept self-contained — no outer-scope references — because it runs in the
  * Figma plugin sandbox.
@@ -64,12 +159,26 @@ export function walkerCode(pageId, { maxDepth = 8, textLimit = 80 } = {}) {
         o.txt = { chars: (n.characters || '').slice(0, TEXT_LIMIT) };
         if (n.fontName !== figma.mixed) { o.txt.font = n.fontName.family; o.txt.style = n.fontName.style; }
         if (n.fontSize !== figma.mixed) o.txt.size = n.fontSize;
-        if (n.lineHeight !== figma.mixed && n.lineHeight && n.lineHeight.unit !== 'AUTO') o.txt.lh = n.lineHeight.value;
+        if (n.lineHeight !== figma.mixed && n.lineHeight && n.lineHeight.unit !== 'AUTO') {
+          // PERCENT line-heights are relative to font size; resolve to absolute
+          // px so the table/JSON tokens are unambiguous and re-import cleanly.
+          // (A raw 142.85 from "142%" would otherwise read as 142.85px.)
+          if (n.lineHeight.unit === 'PERCENT') {
+            if (o.txt.size != null) o.txt.lh = Math.round(o.txt.size * n.lineHeight.value / 100 * 10) / 10;
+          } else {
+            o.txt.lh = n.lineHeight.value;
+          }
+        }
         if (n.letterSpacing !== figma.mixed && n.letterSpacing && n.letterSpacing.value) o.txt.ls = n.letterSpacing.value;
       }
       if (n.type === 'COMPONENT_SET') {
         try { o.vp = n.variantGroupProperties; } catch (e) {}
         o.kidCount = n.children.length;
+        // Reuse handle: the default variant is the COMPONENT you instance
+        // (a set has no createInstance). Capture its node id (same-file reuse)
+        // and publish key (cross-file reuse, only resolvable once published).
+        const dv = n.defaultVariant || n.children[0];
+        if (dv) { o.id = dv.id; try { o.key = dv.key; } catch (e) {} }
         if (n.children.length) o.kids = [walk(n.children[0], depth + 1)];
         return o;
       }
@@ -139,7 +248,7 @@ export function buildCensus(pages) {
       bump(census.typography, [n.txt.font, n.txt.style || '', n.txt.size ?? '', n.txt.lh ?? '', n.txt.ls ?? ''].join('|'));
     }
     if (n.t === 'COMPONENT_SET') {
-      census.componentSets.push({ name: n.n, page: pageName, props: n.vp || {}, variants: n.kidCount || 0, sample: n.kids?.[0] });
+      census.componentSets.push({ name: n.n, page: pageName, props: n.vp || {}, variants: n.kidCount || 0, sample: n.kids?.[0], key: n.key, id: n.id });
     }
     (n.kids || []).forEach(k => visit(k, pageName));
   };
@@ -323,15 +432,93 @@ export function variantMatrixTable(props) {
   return ['| Property | Values |', '|---|---|', ...rows].join('\n');
 }
 
+/**
+ * Reuse handle markdown line for a component census entry. Pure.
+ * Returns the line, or null when there is no handle to emit.
+ */
+export function reuseHandleLine({ key, id } = {}) {
+  const parts = [];
+  if (key) parts.push(`key \`${key}\``);
+  if (id) parts.push(`node \`${id}\``);
+  if (!parts.length) return null;
+  return `Reuse: import existing — ${parts.join(' · ')}`;
+}
+
+// ============ Variables (real Figma variable collections) ============
+
+/**
+ * Replace every { alias: <variableId> } in a captured collection list with
+ * { alias: <variableName> } so the export is portable (ids are file-local and
+ * meaningless after re-import; names are the stable reference). Unknown ids
+ * (e.g. aliases to other libraries) are left as the raw id. Pure; returns a
+ * new structure, does not mutate the input.
+ */
+export function resolveAliases(collections = []) {
+  const idToName = new Map();
+  for (const col of collections)
+    for (const v of col.variables || []) idToName.set(v.id, v.name);
+  const resolveVal = (val) =>
+    val && typeof val === 'object' && 'alias' in val
+      ? { alias: idToName.get(val.alias) || val.alias }
+      : val;
+  return collections.map(col => ({
+    name: col.name,
+    modes: (col.modes || []).map(m => m.name),
+    variables: (col.variables || []).map(v => ({
+      name: v.name, type: v.type,
+      values: Object.fromEntries(Object.entries(v.values || {}).map(([m, val]) => [m, resolveVal(val)])),
+    })),
+  }));
+}
+
+/** One variable value → a markdown table cell. Pure. */
+export function formatVarValue(val) {
+  if (val == null) return '—';
+  if (typeof val === 'object' && 'alias' in val) return `→ var:${val.alias}`;
+  if (typeof val === 'string') return val.startsWith('#') ? `\`${val}\`` : `"${val}"`;
+  return String(val);
+}
+
+/**
+ * Escape an arbitrary string for use inside a single markdown table cell.
+ * Variable / collection / mode names and STRING token values come from any
+ * design system, so they may contain `|` (column separator) or newlines that
+ * would otherwise shatter the table. The JSON token block keeps raw values —
+ * this is purely for the human-readable tables. Pure.
+ */
+export function mdCell(s) {
+  return String(s).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+}
+
+/**
+ * Resolved collections → the JSON `variables` block: keyed by collection name,
+ * each with its mode list and a { name → {type, values} } variable map.
+ * `values` keeps the resolved-alias shape ({ alias: name }) so it roundtrips.
+ * Collection names are not unique in Figma, so colliding names are suffixed
+ * ` (2)`, ` (3)`… rather than silently overwriting each other.
+ */
+export function buildVariableTokens(resolvedCollections = []) {
+  const out = {};
+  for (const col of resolvedCollections) {
+    let key = col.name;
+    for (let n = 2; key in out; n++) key = `${col.name} (${n})`;
+    out[key] = {
+      modes: col.modes,
+      variables: Object.fromEntries(col.variables.map(v => [v.name, { type: v.type, values: v.values }])),
+    };
+  }
+  return out;
+}
+
 // ============ Markdown writer ============
 
 export const ALL_SECTIONS = [
-  'identity', 'structure', 'color', 'typography', 'spacing',
+  'identity', 'structure', 'color', 'variables', 'typography', 'spacing',
   'depth', 'components', 'states', 'rules', 'extending', 'tokens',
 ];
 
 const SECTION_TITLES = {
-  identity: 'Identity', structure: 'Structure', color: 'Color',
+  identity: 'Identity', structure: 'Structure', color: 'Color', variables: 'Variables',
   typography: 'Typography', spacing: 'Spacing & Layout', depth: 'Depth & Motion',
   components: 'Components', states: 'States', rules: 'Rules',
   extending: 'Extending this system', tokens: 'Machine-readable tokens',
@@ -353,6 +540,7 @@ export function generateDesignMd(extraction, options = {}) {
   const baseUnit = inferBaseUnit(census.spacing);
   const fonts = [...census.fonts];
   const hexToName = Object.fromEntries(Object.entries(colorNames).map(([n, h]) => [h, n]));
+  const resolvedVars = resolveAliases(extraction.variables || []);
 
   const out = [];
   out.push(`# DESIGN.md -- ${extraction.fileName}`, '');
@@ -395,6 +583,24 @@ export function generateDesignMd(extraction, options = {}) {
       for (const [hex, count] of ranked) out.push(`| ${hexToName[hex]} | \`${hex}\` | ${count} |`);
       out.push('');
     }
+    if (key === 'variables') {
+      header(key);
+      if (!resolvedVars.length) {
+        out.push('_no local variables found — this file has no variable collections, the palette above is sampled from raw fills_', '');
+      } else {
+        out.push('Real Figma variable collections — the authoritative tokens (names, modes, values). These come straight from the file, unlike the sampled palette above. `figma-cli import` can recreate them as variables.', '');
+        for (const col of resolvedVars) {
+          out.push(`### Collection: ${col.name}  ·  ${col.variables.length} variables  ·  modes: ${col.modes.join(', ')}`, '');
+          out.push(`| Variable | Type | ${col.modes.map(mdCell).join(' | ')} |`);
+          out.push(`|---|---|${col.modes.map(() => '---').join('|')}|`);
+          for (const v of col.variables) {
+            const cells = col.modes.map(m => mdCell(formatVarValue(v.values[m])));
+            out.push(`| ${mdCell(v.name)} | ${v.type} | ${cells.join(' | ')} |`);
+          }
+          out.push('');
+        }
+      }
+    }
     if (key === 'typography') {
       header(key);
       out.push('### Fonts', '');
@@ -435,6 +641,8 @@ export function generateDesignMd(extraction, options = {}) {
       for (const cs of census.componentSets) {
         out.push(`### ${cs.name}`, '');
         out.push(`Page: ${cs.page} · ${cs.variants} variants`, '');
+        const reuse = reuseHandleLine({ key: cs.key, id: cs.id });
+        if (reuse) out.push(reuse, '');
         out.push(variantMatrixTable(cs.props), '');
         if (cs.sample) {
           out.push('Sample variant structure:', '');
@@ -481,6 +689,7 @@ export function generateDesignMd(extraction, options = {}) {
         radius: Object.fromEntries(Object.entries(radiusNames).map(([n, v]) => [n, `${v}px`])),
         shadow: {},
         fonts,
+        ...(resolvedVars.length ? { variables: buildVariableTokens(resolvedVars) } : {}),
       };
       let i = 0;
       for (const [json] of [...census.shadows.entries()].sort((a, b) => b[1] - a[1])) {

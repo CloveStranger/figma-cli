@@ -33,6 +33,13 @@ test('walkerCode loads the page before reading children (dynamic-page mode)', ()
   assert.ok(code.indexOf('loadAsync') < code.indexOf('count(page)'));
 });
 
+test('walkerCode captures the default-variant reuse handle on a COMPONENT_SET', () => {
+  const code = walkerCode('1:1');
+  assert.match(code, /defaultVariant/);
+  assert.match(code, /o\.id = dv\.id/);
+  assert.match(code, /o\.key = dv\.key/);
+});
+
 import { buildCensus, assignSemanticNames } from '../src/design-extract.js';
 
 export const FIXTURE_PAGES = [
@@ -63,6 +70,17 @@ test('buildCensus strips opacity suffix from paint strings', () => {
     { t: 'FRAME', n: 'F', w: 10, h: 10, fills: ['#000000@50'] },
   ] }]);
   assert.equal(census.colors.get('#000000'), 1);
+});
+
+test('buildCensus carries key/id from a COMPONENT_SET walker node', () => {
+  const pages = [{ id: '1:1', name: 'P', nodeCount: 1, frames: [
+    { t: 'COMPONENT_SET', n: 'Button', vp: { Size: { values: ['S', 'M'] } },
+      kidCount: 2, key: 'abc123', id: '10:5', kids: [{ t: 'COMPONENT', n: 'Size=S' }] },
+  ] }];
+  const census = buildCensus(pages);
+  assert.equal(census.componentSets.length, 1);
+  assert.equal(census.componentSets[0].key, 'abc123');
+  assert.equal(census.componentSets[0].id, '10:5');
 });
 
 test('assignSemanticNames classifies by lightness and chroma', () => {
@@ -159,7 +177,7 @@ test('variantMatrixTable renders a property/values table', () => {
 });
 
 import { generateDesignMd, ALL_SECTIONS } from '../src/design-extract.js';
-import { parseDesignMd } from '../src/design-md.js';
+import { parseDesignMd, variableImportCode } from '../src/design-md.js';
 import { writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -170,16 +188,22 @@ const EXTRACTION = {
   pages: FIXTURE_PAGES,
 };
 
-test('generateDesignMd emits all 11 sections by default', () => {
+test('generateDesignMd emits all 12 sections by default', () => {
   const md = generateDesignMd(EXTRACTION);
   for (const [i, title] of [
-    [1, 'Identity'], [2, 'Structure'], [3, 'Color'], [4, 'Typography'],
-    [5, 'Spacing & Layout'], [6, 'Depth & Motion'], [7, 'Components'],
-    [8, 'States'], [9, 'Rules'], [10, 'Extending this system'],
-    [11, 'Machine-readable tokens'],
+    [1, 'Identity'], [2, 'Structure'], [3, 'Color'], [4, 'Variables'],
+    [5, 'Typography'], [6, 'Spacing & Layout'], [7, 'Depth & Motion'],
+    [8, 'Components'], [9, 'States'], [10, 'Rules'],
+    [11, 'Extending this system'], [12, 'Machine-readable tokens'],
   ]) {
     assert.match(md, new RegExp(`^## ${i}\\. ${title.replace(/[&]/g, '\\$&')}`, 'm'), `missing section ${i} ${title}`);
   }
+});
+
+test('Variables section degrades gracefully when the file has no variables', () => {
+  const md = generateDesignMd(EXTRACTION); // fixture has no `variables`
+  assert.match(md, /^## 4\. Variables/m);
+  assert.match(md, /no local variables found/);
 });
 
 test('generateDesignMd respects --sections selection and renumbers', () => {
@@ -222,4 +246,224 @@ test('estimateStructureTokens returns a positive token estimate', () => {
 test('estimateStructureTokens skips errored pages and handles empty input', () => {
   assert.equal(estimateStructureTokens([]), 0);
   assert.equal(estimateStructureTokens([{ id: 'x', name: 'E', error: 'boom' }]), 0);
+});
+
+import { reuseHandleLine } from '../src/design-extract.js';
+
+test('reuseHandleLine: key + id', () => {
+  assert.equal(reuseHandleLine({ key: 'abc', id: '1:2' }),
+    'Reuse: import existing — key `abc` · node `1:2`');
+});
+test('reuseHandleLine: id only', () => {
+  assert.equal(reuseHandleLine({ id: '1:2' }), 'Reuse: import existing — node `1:2`');
+});
+test('reuseHandleLine: neither → null', () => {
+  assert.equal(reuseHandleLine({}), null);
+  assert.equal(reuseHandleLine(), null);
+});
+
+test('generateDesignMd components section emits the Reuse line', () => {
+  const pages = [{ id: '1:1', name: 'P', nodeCount: 1, frames: [
+    { t: 'COMPONENT_SET', n: 'Button', vp: { Size: { values: ['S', 'M'] } },
+      kidCount: 2, key: 'abc123', id: '10:5', kids: [{ t: 'COMPONENT', n: 'Size=S' }] },
+  ] }];
+  const md = generateDesignMd({ fileName: 'F', date: '2026-06-16', pages }, { sections: ['components'] });
+  assert.match(md, /Reuse: import existing — key `abc123` · node `10:5`/);
+});
+
+// ============ Variables capture ============
+
+import { variablesCode, variableCollectionsCode, variableChunkCode, resolveAliases, formatVarValue, buildVariableTokens, mdCell } from '../src/design-extract.js';
+
+const FIXTURE_VARS = [
+  {
+    id: 'VC:1', name: 'Acme Primitives',
+    modes: [{ id: 'm1', name: 'Light' }, { id: 'm2', name: 'Dark' }],
+    variables: [
+      { id: 'V:1', name: 'fgColor-default', type: 'COLOR', values: { Light: '#1f2328', Dark: '#e6edf3' } },
+      { id: 'V:2', name: 'button-primary-bgColor-rest', type: 'COLOR', values: { Light: '#1f883d', Dark: '#238636' } },
+      { id: 'V:3', name: 'control-medium-size', type: 'FLOAT', values: { Light: 32, Dark: 32 } },
+      // alias to another variable, captured as an id by the walker
+      { id: 'V:4', name: 'button-default-fgColor', type: 'COLOR', values: { Light: { alias: 'V:1' }, Dark: { alias: 'V:1' } } },
+    ],
+  },
+];
+
+test('variablesCode is valid JS and uses the dynamic-page variable APIs', () => {
+  const code = variablesCode();
+  assert.doesNotThrow(() => new Function(`return ${code}`));
+  assert.match(code, /getLocalVariableCollectionsAsync/);
+  assert.match(code, /getVariableByIdAsync/);
+  assert.match(code, /VARIABLE_ALIAS/);
+});
+
+test('variablesCode resolves alias names in-Figma (handles library/remote refs)', () => {
+  const code = variablesCode();
+  // Alias targets are looked up to their name via a cache so even imported
+  // library variable ids resolve to a readable name, not a raw VariableID.
+  assert.match(code, /nameCache/);
+  assert.match(code, /aliasName/);
+  assert.match(code, /alias: await aliasName\(raw\.id\)/);
+});
+
+test('variableCollectionsCode lists collections without reading values', () => {
+  const code = variableCollectionsCode();
+  assert.doesNotThrow(() => new Function(`return ${code}`));
+  assert.match(code, /getLocalVariableCollectionsAsync/);
+  assert.match(code, /variableIds/);
+  // it must NOT pull every value (that's the chunked path's job)
+  assert.doesNotMatch(code, /valuesByMode/);
+});
+
+test('variableChunkCode embeds the id slice + modes and is valid JS', () => {
+  const code = variableChunkCode(['V:1', 'V:2'], [{ id: 'm1', name: 'Light' }]);
+  assert.doesNotThrow(() => new Function(`return ${code}`));
+  assert.match(code, /"V:1"/);
+  assert.match(code, /"V:2"/);
+  assert.match(code, /"Light"/);
+  // shares the same alias-resolution helper as the one-shot path
+  assert.match(code, /alias: await aliasName\(raw\.id\)/);
+});
+
+test('resolveAliases swaps alias ids for the referenced variable name', () => {
+  const resolved = resolveAliases(FIXTURE_VARS);
+  const aliasVar = resolved[0].variables.find(v => v.name === 'button-default-fgColor');
+  assert.deepEqual(aliasVar.values.Light, { alias: 'fgColor-default' });
+  assert.deepEqual(resolved[0].modes, ['Light', 'Dark']);
+});
+
+test('resolveAliases leaves unknown alias ids untouched (cross-library refs)', () => {
+  const resolved = resolveAliases([{ name: 'C', modes: [{ id: 'm', name: 'M' }], variables: [
+    { id: 'V:9', name: 'x', type: 'COLOR', values: { M: { alias: 'EXTERNAL:42' } } },
+  ] }]);
+  assert.deepEqual(resolved[0].variables[0].values.M, { alias: 'EXTERNAL:42' });
+});
+
+test('formatVarValue renders hex, alias, number and string cells', () => {
+  assert.equal(formatVarValue('#1f883d'), '`#1f883d`');
+  assert.equal(formatVarValue({ alias: 'fgColor-default' }), '→ var:fgColor-default');
+  assert.equal(formatVarValue(32), '32');
+  assert.equal(formatVarValue('auto'), '"auto"');
+  assert.equal(formatVarValue(undefined), '—');
+});
+
+test('buildVariableTokens keys by collection name with modes + variable map', () => {
+  const tokens = buildVariableTokens(resolveAliases(FIXTURE_VARS));
+  assert.deepEqual(tokens['Acme Primitives'].modes, ['Light', 'Dark']);
+  assert.equal(tokens['Acme Primitives'].variables['button-primary-bgColor-rest'].values.Light, '#1f883d');
+  assert.equal(tokens['Acme Primitives'].variables['button-primary-bgColor-rest'].type, 'COLOR');
+});
+
+test('generateDesignMd emits the Variables section with a per-collection table', () => {
+  const md = generateDesignMd({ ...EXTRACTION, variables: FIXTURE_VARS });
+  assert.match(md, /### Collection: Acme Primitives {2}· {2}4 variables {2}· {2}modes: Light, Dark/);
+  assert.match(md, /\| button-primary-bgColor-rest \| COLOR \| `#1f883d` \| `#238636` \|/);
+  // alias resolved to a name, not an id
+  assert.match(md, /\| button-default-fgColor \| COLOR \| → var:fgColor-default \| → var:fgColor-default \|/);
+});
+
+// These guard generality across ARBITRARY design systems, not just one vendor:
+// names/modes/values can contain markdown-hostile characters, and collection
+// names are not unique in Figma.
+
+test('mdCell escapes pipes and flattens newlines', () => {
+  assert.equal(mdCell('a|b'), 'a\\|b');
+  assert.equal(mdCell('line1\nline2'), 'line1 line2');
+  assert.equal(mdCell('plain'), 'plain');
+});
+
+test('generateDesignMd keeps table columns intact when names/values contain pipes', () => {
+  const vars = [{
+    id: 'C', name: 'Weird System',
+    modes: [{ id: 'm1', name: 'Light | HC' }, { id: 'm2', name: 'Dark' }],
+    variables: [
+      { id: 'V1', name: 'spacing|inset', type: 'STRING', values: { 'Light | HC': 'a|b', Dark: 'x' } },
+    ],
+  }];
+  const md = generateDesignMd({ ...EXTRACTION, variables: vars });
+  const row = md.split('\n').find(l => l.startsWith('| spacing'));
+  // a literal pipe in content must be escaped so it isn't read as a column break
+  assert.ok(row.includes('spacing\\|inset'), row);
+  assert.ok(row.includes('"a\\|b"'), row);
+  // header carries the escaped mode name
+  assert.match(md, /Light \\\| HC/);
+  // every body row has the same column count as the header (5 cells → 6 bars)
+  const headerBars = (md.split('\n').find(l => l.startsWith('| Variable')).match(/(?<!\\)\|/g) || []).length;
+  const rowBars = (row.match(/(?<!\\)\|/g) || []).length;
+  assert.equal(rowBars, headerBars);
+});
+
+test('buildVariableTokens suffixes duplicate collection names instead of overwriting', () => {
+  const dup = [
+    { name: 'Theme', modes: ['default'], variables: [{ name: 'a', type: 'COLOR', values: { default: '#111111' } }] },
+    { name: 'Theme', modes: ['default'], variables: [{ name: 'b', type: 'COLOR', values: { default: '#222222' } }] },
+  ];
+  const tokens = buildVariableTokens(dup);
+  assert.deepEqual(Object.keys(tokens), ['Theme', 'Theme (2)']);
+  assert.ok(tokens['Theme'].variables.a);
+  assert.ok(tokens['Theme (2)'].variables.b);
+});
+
+test('captures all four Figma variable resolved types (not just colors)', () => {
+  const vars = [{
+    id: 'C', name: 'Mixed', modes: [{ id: 'm', name: 'default' }],
+    variables: [
+      { id: '1', name: 'col', type: 'COLOR', values: { default: '#abcdef' } },
+      { id: '2', name: 'num', type: 'FLOAT', values: { default: 8 } },
+      { id: '3', name: 'str', type: 'STRING', values: { default: 'Inter' } },
+      { id: '4', name: 'flag', type: 'BOOLEAN', values: { default: true } },
+    ],
+  }];
+  const md = generateDesignMd({ ...EXTRACTION, variables: vars });
+  assert.match(md, /\| col \| COLOR \| `#abcdef` \|/);
+  assert.match(md, /\| num \| FLOAT \| 8 \|/);
+  assert.match(md, /\| str \| STRING \| "Inter" \|/);
+  assert.match(md, /\| flag \| BOOLEAN \| true \|/);
+});
+
+// ============ Variables import (DESIGN.md → real Figma collections) ============
+
+test('variableImportCode is valid JS and embeds the collection data', () => {
+  const code = variableImportCode(buildVariableTokens(resolveAliases(FIXTURE_VARS)));
+  assert.doesNotThrow(() => new Function(`return ${code}`));
+  assert.match(code, /createVariableCollection/);
+  assert.match(code, /createVariableAlias/);
+  assert.match(code, /addMode/);
+  assert.match(code, /button-primary-bgColor-rest/);
+});
+
+test('variableImportCode is a two-pass build (aliases resolved after creation)', () => {
+  const code = variableImportCode(buildVariableTokens(resolveAliases(FIXTURE_VARS)));
+  assert.match(code, /PASS 1/);
+  assert.match(code, /PASS 2/);
+  // pass 1 explicitly defers alias values
+  assert.match(code, /'alias' in val\) continue; \/\/ pass 2/);
+  // colors parse 8-digit hex (alpha) too
+  assert.match(code, /\(\[a-f.*\]\{2\}\)\?/);
+});
+
+test('variableImportCode handles a full extract→import roundtrip shape', () => {
+  // The data the importer receives is exactly what parseDesignMd returns.
+  const md = generateDesignMd({ ...EXTRACTION, variables: FIXTURE_VARS });
+  const dir = mkdtempSync(join(tmpdir(), 'vimp-'));
+  const file = join(dir, 'DESIGN.md');
+  writeFileSync(file, md);
+  const parsed = parseDesignMd(file);
+  const code = variableImportCode(parsed.tokens.variables);
+  assert.doesNotThrow(() => new Function(`return ${code}`));
+  assert.match(code, /Acme Primitives/);
+  assert.match(code, /button-primary-bgColor-rest/);
+});
+
+test('Variables roundtrip: parseDesignMd reads the JSON variables block back', () => {
+  const md = generateDesignMd({ ...EXTRACTION, variables: FIXTURE_VARS });
+  const dir = mkdtempSync(join(tmpdir(), 'extract-vars-'));
+  const file = join(dir, 'DESIGN.md');
+  writeFileSync(file, md);
+  const parsed = parseDesignMd(file);
+  const pp = parsed.tokens.variables['Acme Primitives'];
+  assert.deepEqual(pp.modes, ['Light', 'Dark']);
+  assert.equal(pp.variables['fgColor-default'].values.Dark, '#e6edf3');
+  // existing color/typography parsing still works alongside the new block
+  assert.ok(Object.values(parsed.tokens.color).includes('#ffffff'));
 });
