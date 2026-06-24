@@ -1,6 +1,6 @@
 ---
 name: figma-tokens
-description: Use when creating or resetting token collections such as shadcn, tailwind, spacing, or design-system presets in figma-ds-cli
+description: Use when creating or resetting token collections such as shadcn, tailwind, spacing, or design-system presets in figma-cli
 ---
 
 # Figma Tokens
@@ -18,7 +18,7 @@ fig-start
 Command alias:
 
 ```bash
-fig='figma-ds-cli'
+fig='figma-cli'
 ```
 
 ## When to Use
@@ -37,6 +37,7 @@ fig tokens ds
 fig tokens spacing
 fig var delete-all
 fig var delete-all -c "primitives"
+fig import DESIGN.md
 ```
 
 ## Notes
@@ -45,3 +46,4 @@ fig var delete-all -c "primitives"
 - `tokens tailwind` creates the Tailwind palette only.
 - `tokens ds` creates the IDS base system.
 - `var list` does not create anything. It is inspection only.
+- For an extracted DESIGN.md with real variable collections, prefer `fig import DESIGN.md` so modes and aliases roundtrip. Do not split it into manual `tokens import` runs unless intentionally transforming it.

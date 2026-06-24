@@ -1,13 +1,13 @@
 ---
 name: figma-export
-description: Use when exporting screenshots, nodes, code artifacts, or app assets from figma-ds-cli and choosing the right export granularity
+description: Use when exporting screenshots, nodes, code artifacts, app assets, DESIGN.md, or token files from figma-cli and choosing the right export granularity
 ---
 
 # Figma Export
 
 ## Overview
 
-This skill covers export targets, export settings subtrees, token output, and the decision process for choosing the right node to export.
+This skill covers export targets, export settings subtrees, design-system handoff, token output, and the decision process for choosing the right node to export.
 
 Interactive entrypoint:
 
@@ -18,7 +18,7 @@ fig-start
 Command alias:
 
 ```bash
-fig='figma-ds-cli'
+fig='figma-cli'
 ```
 
 ## When to Use
@@ -26,6 +26,8 @@ fig='figma-ds-cli'
 - User wants PNG, SVG, JPG, or PDF assets
 - User wants all configured export assets under a node or Figma URL
 - User wants CSS, Tailwind, or DTCG/W3C design-token output
+- User wants DESIGN.md extraction or variable-only extraction
+- User wants to import a DESIGN.md back into Figma variables
 - User wants JSX or Storybook exports
 - User wants screenshots of the page or selection
 
@@ -41,6 +43,9 @@ fig export node "1:234" -o card.png
 fig export node "1:234" -f svg -o card.svg
 fig export subtree "1:234"
 fig export subtree "https://www.figma.com/design/FILE/Page?node-id=1-234" -o exports/app-icons
+fig extract DESIGN.md
+fig extract DESIGN.md --sections variables
+fig import DESIGN.md
 fig export-jsx "1:234" -o Card.jsx --pretty
 fig export-storybook "1:234"
 ```
@@ -64,6 +69,16 @@ Use `fig export subtree <nodeOrUrl>` when the design already has Figma export se
 - It writes `manifest.json` with source, root, node paths, formats, suffixes, and constraints.
 
 Prefer `subtree` over manual child-by-child export when the user's intent is "export the assets from this frame/component".
+
+## DESIGN.md Handoff
+
+Use `fig extract` when the user asks to export or document a design system.
+
+- Default extraction scans all pages and includes identity, structure, colors, variables, typography, spacing, depth, components, states, rules, extending, and machine-readable tokens.
+- Use `--pages "Name"` or `--selection` to scope large files.
+- Use `--sections variables` for real variable collections only. This captures true names, modes, and alias chains, not just sampled fills.
+- Re-import extracted systems with `fig import DESIGN.md`; it recreates variable collections, modes, and aliases when the file includes real variables.
+- After extraction, summarize captured pages, variable counts, skipped chunks, and output paths. Do not paste DESIGN.md contents into chat.
 
 ## Workflow
 

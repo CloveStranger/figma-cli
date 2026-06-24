@@ -1,6 +1,6 @@
 ---
 name: figma-slot
-description: Use when creating, listing, converting, resetting, or populating Figma native slots in components or instances with figma-ds-cli
+description: Use when creating, listing, converting, resetting, or populating Figma native slots in components or instances with figma-cli
 ---
 
 # Figma Slot
@@ -18,7 +18,7 @@ fig-start
 Command alias:
 
 ```bash
-fig='figma-ds-cli'
+fig='figma-cli'
 ```
 
 ## When to Use

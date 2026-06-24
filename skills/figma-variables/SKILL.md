@@ -1,13 +1,13 @@
 ---
 name: figma-variables
-description: Use when listing, visualizing, creating, binding, or updating variables in figma-ds-cli, including fast var syntax during creation
+description: Use when listing, visualizing, creating, binding, updating, extracting, or roundtripping variables in figma-cli, including fast var syntax during creation
 ---
 
 # Figma Variables
 
 ## Overview
 
-This skill covers variable inspection, direct binding, and fast inline `var:` usage.
+This skill covers variable inspection, direct binding, fast inline `var:` usage, and real variable-collection roundtrips through DESIGN.md.
 
 Interactive entrypoint:
 
@@ -18,7 +18,7 @@ fig-start
 Command alias:
 
 ```bash
-fig='figma-ds-cli'
+fig='figma-cli'
 ```
 
 ## When to Use
@@ -27,6 +27,7 @@ fig='figma-ds-cli'
 - User wants to show colors on canvas
 - User wants fills, strokes, radius, gap, or padding bound to variables
 - User wants to use `var:name` directly in create, render, or set commands
+- User wants to export or import real Figma variable collections, modes, or aliases
 
 ## Inspect and Manage
 
@@ -48,6 +49,18 @@ fig bind padding "spacing/lg"
 fig bind list
 ```
 
+## Extract and Roundtrip
+
+```bash
+fig extract DESIGN.md --sections variables
+fig extract DESIGN.md
+fig import DESIGN.md
+```
+
+- `extract --sections variables` captures real Figma variable collections: names, modes, values, and alias chains.
+- `fig import DESIGN.md` recreates those collections when the DESIGN.md includes real variables.
+- Use this path for design-system transfer. Do not manually rewrite variable JSON unless the user explicitly asks for a custom transform.
+
 ## Fast `var:` Syntax
 
 ```bash
@@ -57,6 +70,8 @@ fig render '<Frame bg="var:card" stroke="var:border"><Text color="var:foreground
 fig set fill "var:primary"
 fig set stroke "var:border"
 ```
+
+Use `--collection <name>` on `render` / `render-batch` when the user names a collection. Use per-attribute `var:collection:name` only when intentionally mixing collections.
 
 ## Common Variables
 

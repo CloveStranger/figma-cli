@@ -1,6 +1,6 @@
 ---
 name: figma-connect
-description: Use when connecting figma-ds-cli to Figma Desktop, choosing between Yolo and Safe mode, or handling mode-specific setup constraints
+description: Use when connecting figma-cli to Figma Desktop, choosing between Yolo and Safe mode, or handling mode-specific setup constraints
 ---
 
 # Figma Connect
@@ -20,7 +20,7 @@ Use `fig-start --safe` when the whole session should stay in Safe Mode.
 Command alias:
 
 ```bash
-fig='figma-ds-cli'
+fig='figma-cli'
 ```
 
 ## When to Use
@@ -41,6 +41,8 @@ fig connect --safe
 - Prefer `connect` for Yolo Mode. It patches Figma once, then connects directly.
 - Use `connect --safe` when patching is not allowed or the user wants plugin-only access.
 - In Safe Mode, the user must start the FigCli plugin each session.
+- On macOS 13+, Yolo patching needs System Settings -> Privacy & Security -> App Management for the terminal app. Full Disk Access alone is not enough.
+- If App Management cannot be granted, use `connect --safe`.
 
 ## Safe Mode Constraints
 

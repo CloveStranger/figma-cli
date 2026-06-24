@@ -1,6 +1,6 @@
 ---
 name: figma-render
-description: Use when creating primitives, JSX layouts, webpages, or custom components with figma-ds-cli render, create, set, sizing, padding, gap, arrange, or eval workflows
+description: Use when creating primitives, JSX layouts, webpages, or custom components with figma-cli render, create, set, sizing, padding, gap, arrange, or eval workflows
 ---
 
 # Figma Render
@@ -18,7 +18,7 @@ fig-start
 Command alias:
 
 ```bash
-fig='figma-ds-cli'
+fig='figma-cli'
 ```
 
 ## When to Use
@@ -39,6 +39,8 @@ fig render '<Frame name="Card">...</Frame>' --as-component --verify
 fig render '<Frame bg="var:card">...</Frame>' --collection figma --verify
 fig render-batch '["<Frame ... />","<Frame ... />"]' -d row -g 40 --verify
 fig render-batch '["<Frame ... />","<Frame ... />"]' --as-component --collection figma
+fig spec "Button"
+fig instantiate "Button"
 ```
 
 ## Layout Updates
@@ -63,6 +65,14 @@ fig arrange -g 100
 - Use `--collection <name>` when the user names a variable collection or brand system.
 - Use `--keep-wrapper` only when the outer wrapper is intentional; otherwise the renderer may split layout-only wrappers into independent canvas items.
 
+## Reuse Check
+
+If a DESIGN.md exists and the user asks for a component that may already be in that system, do not default to rendering.
+
+1. Run `fig spec "Name"` to find the authoritative spec and reuse handle.
+2. If the user wants to use or add the existing component, run `fig instantiate "Name"`.
+3. If the user explicitly wants a rebuilt version, render it and then run `fig spec "Name" --check "NODE_ID"`.
+
 ## Safe Mode Rule
 
 `render` and `render-batch` work in Safe Mode, including text. If a complex batch times out, split it into smaller renders. Use `eval` only for native Figma API operations that JSX cannot express.
@@ -72,7 +82,7 @@ fig arrange -g 100
 - Check current page positions before creating large new groups to avoid overlap.
 - Never delete existing nodes unless the user asked for it.
 - After creating anything visual, run `fig verify --measure` or pass `--verify` to render.
-- For complex multi-element components, prefer a single `eval` so the whole structure is built in one API call.
+- Prefer `render` / `render-batch` for visual node creation. Use `eval` only for native Plugin API operations that JSX or CLI commands cannot express.
 - When the user asks for N cards/buttons/items, create N independent top-level nodes with `render-batch`, not one wrapper frame containing N repeated children.
 
 ## Auto-Layout Rules For Text Components
