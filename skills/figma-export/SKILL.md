@@ -1,6 +1,6 @@
 ---
 name: figma-export
-description: Use when exporting screenshots, nodes, code artifacts, app assets, DESIGN.md, or token files from figma-cli and choosing the right export granularity
+description: Use when exporting screenshots, nodes, code artifacts, app assets, DESIGN.md, or token files from fig/figma-ds-cli and choosing the right export granularity
 ---
 
 # Figma Export
@@ -12,13 +12,13 @@ This skill covers export targets, export settings subtrees, design-system handof
 Interactive entrypoint:
 
 ```bash
-fig-start
+fig connect
 ```
 
 Command alias:
 
 ```bash
-fig='figma-cli'
+alias fig='figma-ds-cli'
 ```
 
 ## When to Use

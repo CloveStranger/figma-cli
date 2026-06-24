@@ -1,6 +1,6 @@
 ---
 name: figma-tokens
-description: Use when creating or resetting token collections such as shadcn, tailwind, spacing, or design-system presets in figma-cli
+description: Use when creating or resetting token collections such as shadcn, tailwind, spacing, or design-system presets in fig/figma-ds-cli
 ---
 
 # Figma Tokens
@@ -12,13 +12,13 @@ This skill covers token creation commands. Use it when the user wants a token se
 Interactive entrypoint:
 
 ```bash
-fig-start
+fig connect
 ```
 
 Command alias:
 
 ```bash
-fig='figma-cli'
+alias fig='figma-ds-cli'
 ```
 
 ## When to Use

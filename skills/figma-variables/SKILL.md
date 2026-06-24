@@ -1,6 +1,6 @@
 ---
 name: figma-variables
-description: Use when listing, visualizing, creating, binding, updating, extracting, or roundtripping variables in figma-cli, including fast var syntax during creation
+description: Use when listing, visualizing, creating, binding, updating, extracting, or roundtripping variables in fig/figma-ds-cli, including fast var syntax during creation
 ---
 
 # Figma Variables
@@ -12,13 +12,13 @@ This skill covers variable inspection, direct binding, fast inline `var:` usage,
 Interactive entrypoint:
 
 ```bash
-fig-start
+fig connect
 ```
 
 Command alias:
 
 ```bash
-fig='figma-cli'
+alias fig='figma-ds-cli'
 ```
 
 ## When to Use

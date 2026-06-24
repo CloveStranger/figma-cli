@@ -1,6 +1,6 @@
 ---
 name: figma-blocks
-description: Use when creating prebuilt layouts such as dashboards or page blocks with figma-cli instead of manually assembling them
+description: Use when creating prebuilt layouts such as dashboards or page blocks with fig/figma-ds-cli instead of manually assembling them
 ---
 
 # Figma Blocks
@@ -12,13 +12,13 @@ Blocks are the default path for dashboards and prebuilt layouts. Do not rebuild 
 Interactive entrypoint:
 
 ```bash
-fig-start
+fig connect
 ```
 
 Command alias:
 
 ```bash
-fig='figma-cli'
+alias fig='figma-ds-cli'
 ```
 
 ## When to Use

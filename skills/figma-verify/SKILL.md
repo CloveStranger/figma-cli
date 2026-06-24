@@ -1,6 +1,6 @@
 ---
 name: figma-verify
-description: Use when validating newly created or modified Figma output with screenshots before accepting or exporting the result in figma-cli
+description: Use when validating newly created or modified Figma output with screenshots before accepting or exporting the result in fig/figma-ds-cli
 ---
 
 # Figma Verify
@@ -12,13 +12,13 @@ Verification is required after visual creation. Use it to inspect the actual ren
 Interactive entrypoint:
 
 ```bash
-fig-start
+fig connect
 ```
 
 Command alias:
 
 ```bash
-fig='figma-cli'
+alias fig='figma-ds-cli'
 ```
 
 ## When to Use

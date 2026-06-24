@@ -1,6 +1,6 @@
 ---
 name: figma-node
-description: Use when inspecting the canvas, finding nodes, reading node details, converting nodes, reusing existing components, or working with variants and size helpers in figma-cli
+description: Use when inspecting the canvas, finding nodes, reading node details, converting nodes, reusing existing components, or working with variants and size helpers in fig/figma-ds-cli
 ---
 
 # Figma Node
@@ -12,13 +12,13 @@ This skill covers node discovery, structural operations on existing canvas conte
 Interactive entrypoint:
 
 ```bash
-fig-start
+fig connect
 ```
 
 Command alias:
 
 ```bash
-fig='figma-cli'
+alias fig='figma-ds-cli'
 ```
 
 ## When to Use

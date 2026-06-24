@@ -1,6 +1,6 @@
 ---
 name: figma-render
-description: Use when creating primitives, JSX layouts, webpages, or custom components with figma-cli render, create, set, sizing, padding, gap, arrange, or eval workflows
+description: Use when creating primitives, JSX layouts, webpages, or custom components with fig/figma-ds-cli render, create, set, sizing, padding, gap, arrange, or eval workflows
 ---
 
 # Figma Render
@@ -12,13 +12,13 @@ This skill covers direct creation workflows: primitives, JSX render, batch rende
 Interactive entrypoint:
 
 ```bash
-fig-start
+fig connect
 ```
 
 Command alias:
 
 ```bash
-fig='figma-cli'
+alias fig='figma-ds-cli'
 ```
 
 ## When to Use

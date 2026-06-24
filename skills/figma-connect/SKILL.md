@@ -1,6 +1,6 @@
 ---
 name: figma-connect
-description: Use when connecting figma-cli to Figma Desktop, choosing between Yolo and Safe mode, or handling mode-specific setup constraints
+description: Use when connecting fig/figma-ds-cli to Figma Desktop, choosing between Yolo and Safe mode, or handling mode-specific setup constraints
 ---
 
 # Figma Connect
@@ -9,18 +9,18 @@ description: Use when connecting figma-cli to Figma Desktop, choosing between Yo
 
 Connect first, then choose the execution mode that matches the environment.
 
-Start from the launcher when working interactively:
+Start by connecting to Figma Desktop:
 
 ```bash
-fig-start
+fig connect
 ```
 
-Use `fig-start --safe` when the whole session should stay in Safe Mode.
+Use `fig connect --safe` when the whole session should stay in Safe Mode.
 
 Command alias:
 
 ```bash
-fig='figma-cli'
+alias fig='figma-ds-cli'
 ```
 
 ## When to Use
