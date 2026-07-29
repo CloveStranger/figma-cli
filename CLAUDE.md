@@ -40,6 +40,11 @@ CLI that controls Figma Desktop directly. No API key needed.
 **Wallpaper palette tip:** for rich results pass **5-6 hue-diverse colors** (mix warm + cool + a bright accent), not shades of one color. Analogous palettes blend into a flat 2-tone wash. The command auto-adds a depth anchor + focal glow, and `--style auto` rotates compositions (scatter/diagonal/bands/drift/spotlight/corners). For N wallpapers, run it N times with different palettes + styles. Add `--grain` for subtle film-grain NOISE or `--texture` for paper grain over the wallpaper.
 
 **Liquid glass tip (Apple-style):** Figma's native `GLASS` effect (`glass={true}`) reproduces the STATIC optics of Apple Liquid Glass — edge-lensing/refraction (`glassDepth`), specular highlight (`glassLight`/`glassLightAngle`), chromatic dispersion (`glassDispersion`) — but NOT the live material (no motion/scroll adaptation). To make it read as liquid (not frosted): keep `glassRadius` LOW (clear) + `glassDepth` HIGH (strong rim lensing) + put **sharp, detailed content BEHIND** the glass so the lensing is visible. Over a smooth gradient with nothing behind it, any glass looks frosted. Best demo = real UI over a photo-like background (e.g. an iOS Control Center: glass tiles over a vivid wallpaper).
+| "animate this" / "add a fade/keyframe" | `figma-cli motion add <id> --field opacity --keys "0:0, 0.4:1:ease-out"` |
+| "fade it in / pop / slide in" | `figma-cli motion preset <id> fade-up` |
+| "stagger / sequence these in" | `figma-cli motion stagger <id,id,id> --preset fade-up --step 0.1` |
+| "build a complex animation" | `figma-cli motion apply <spec.json>` (multi-node/track/keyframe) |
+| "what animation is on this" | `figma-cli motion inspect <id>` |
 | "show all variants" | `figma-cli combos` |
 | "create size variants" | `figma-cli sizes --base small` |
 | "make these frames a variant set" / "combine into variants" | `figma-cli variants from <ids> --property Size --values Small,Medium,Large --name Button` |
@@ -324,7 +329,9 @@ figma-cli set fill "var:primary"
 
 ## Connection Modes
 
-**Yolo Mode (Recommended):** `figma-cli connect` - Patches Figma once, fully automatic.
+**Yolo Mode (Recommended):** `figma-cli connect` - Patches Figma Desktop once, fully automatic.
+
+**Browser Mode (no app modification):** `figma-cli connect --browser` - Drives Figma running in a **normal Chromium browser** via CDP; the local Figma app is **never patched or modified**. It launches a Chrome/Edge/Brave/Chromium window with remote debugging enabled (dedicated persistent profile, so your Figma login and everyday browser profile are untouched), waits for you to open a design file there, then runs the same fast CDP path as Yolo. Use this when patching the desktop app is undesirable (compliance, no "App Management" permission, locked-down machine). Note: expects Figma Desktop not to be occupying the debug port (9222) at the same time.
 
 **Safe Mode:** `figma-cli connect --safe` - Plugin-based, no Figma modification. Then: Plugins > Development > FigCli.
 
@@ -528,6 +535,53 @@ JSX: `<Slot name="Content" flex="col" gap={8} w="fill" />` (creates real slot wh
 
 ---
 
+## Motion (Figma Animation, Config 2026 Beta)
+
+Native Figma Motion: keyframe tracks, presets, first-party styles, timelines.
+Isolated in the `motion` command namespace. **Beta + rollout-flagged** — if the
+user's Figma lacks it, every subcommand exits with a clear "not enabled" message.
+
+```bash
+figma-cli motion add <id> --field opacity --keys "0:0, 0.4:1:ease-out"   # N keyframes, 1 property
+figma-cli motion add <id> --field fill --from "#ec4899" --to "#22c55e" --dur 0.6  # animate a solid fill
+figma-cli motion preset <id> fade-up            # fade-in/fade-up/fade-down/slide-left/slide-right/pop/spin
+figma-cli motion stagger <id,id,id> --preset fade-up --step 0.1   # choreograph a sequence
+figma-cli motion apply <spec.json>              # multi-node/track/keyframe spec (the power tool)
+figma-cli motion style <id> opacity             # Figma's first-party styles (motion styles to list)
+figma-cli motion timeline <id> --duration 2     # read/set the frame timeline
+figma-cli motion inspect <id>                   # read back tracks/styles/timeline (verification)
+figma-cli motion clear <id> [--field opacity] [--styles]
+```
+
+- **Fields (aliases):** `opacity, translateX/Y, scale, rotate, radius, width, height, strokeWeight, gap, fill, stroke`. Transform fields are additive (neutral 0, scale 1); others replace. `scale` is a VECTOR (scalar expands to both axes).
+- **Easing (aliases):** `ease-out, ease-in, ease-in-out, gentle, quick, spring, spring(0.6), cubic(x1,y1,x2,y2), linear, hold`.
+- **Node targeting:** motion can't animate a top-level frame. A frame id auto-descends into its single child (prints "via …"); with multiple children it errors and lists them, so animate the **child** ids (from `find`/`canvas info`).
+- **`apply` spec:** `{ "duration": 1.2, "tracks": [ { "node":"12:5", "field":"opacity", "keys":[{"t":0,"v":0},{"t":0.4,"v":1,"ease":"ease-out"}] }, … ] }`. Omit `duration` to auto-fit the last keyframe; it's never shortened.
+- **Verify by numbers, not video:** `motion inspect` reads tracks back (same philosophy as `spec --check`). Real motion preview is a server-side video export, outside the Plugin API — don't attempt it in the CLI.
+
+### ⚠️ Known limitation: Figma Motion pairs the animated frame (Beta)
+
+In the current Figma Desktop Motion Beta (build 126.6.x), `applyManualKeyframeTrack`
+often makes Figma **duplicate the timeline-owner top-level frame** — after animating,
+you may see TWO frames of the same name where you expect one (proven: page-child
+count 1→2 inside a single eval). This is Figma's own behavior, not a figma-cli bug
+(Figma's Motion docs don't mention it), and it is **not deterministic** — sometimes
+it happens, sometimes not, and re-running any `motion` command on an already-animated
+frame can trigger it.
+
+- **The two frames are a LINKED PAIR — do NOT try to delete the "duplicate".**
+  Removing it also destroys the original (the animated node becomes invalid), so any
+  auto-dedup is impossible. `figma-cli` intentionally does NOT clean this up.
+- **It's cosmetically harmless:** the pair is stacked at identical coordinates, so on
+  the canvas and in Presentation mode it reads as ONE clean animation. The extra frame
+  is only visible in the Layers panel.
+- **Practical advice:** apply the animation ONCE and don't re-run `motion` commands on
+  the same frame (each extra call risks another pair). Don't fight it — it's a Figma
+  Beta artifact that should resolve when Figma stabilizes Motion.
+- **Root cause of the *inconsistent multiplying* was separate** — a daemon race that
+  spawned multiple daemons (fixed). If you ever see MORE than a clean pair (3-4 copies,
+  0 after delete), check `ps aux | grep [d]aemon.js | wc -l` is 1.
+
 ## Variant Sets (Frames or Components → Component Set)
 
 When a user has N frames (or N components) that should become one component with variants, use `variants from`. It auto-promotes any FRAMEs to COMPONENTs, renames them `Property=Value` so Figma derives exactly one variant property, then calls `figma.combineAsVariants`. The result is a real Component Set you can swap variants on in the right panel.
@@ -553,8 +607,9 @@ figma-cli variants from 5:10,5:11 --property State --values Default,Hover
 ## Onboarding
 
 1. Run `npm install` silently
-2. Ask connection mode (Yolo or Safe)
-3. Run `figma-cli connect` (or `--safe`)
+2. Ask connection mode (Yolo, Browser, or Safe). Pick **Browser** if the user
+   doesn't want the local Figma app modified/patched.
+3. Run `figma-cli connect` (or `--browser`, or `--safe`)
 4. When connected, say: "Connected! What would you like to create?"
 
 If permission error (macOS 13+): System Settings > Privacy & Security > App Management > enable your terminal (Full Disk Access alone does not allow patching Figma). Or use Safe Mode: `figma-cli connect --safe`

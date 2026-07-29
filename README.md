@@ -70,6 +70,25 @@ Claude builds it in Figma instantly.
 
 ---
 
+## Install as a Claude Code plugin (optional)
+
+Prefer Claude Code's plugin system? This repo is also a **plugin marketplace**, so
+Claude Code learns the figma-cli workflow in *any* project (not just this one) after
+a two-line install:
+
+```
+/plugin marketplace add silships/figma-cli
+/plugin install figma-cli@intodesignsystems
+```
+
+That installs a skill that teaches Claude Code how to drive figma-cli (connect
+modes, the render/JSX rules, tokens, verify, a11y). The **CLI itself still needs
+Node ≥ 18 and its dependencies** , clone this repo and run `npm install` once (or
+ask Claude to), then open Figma Desktop and say *"connect to Figma"*. The plugin
+supplies the know-how; the local CLI does the work.
+
+---
+
 ## Using Cursor
 
 Prefer **Cursor**? It works exactly the same , the CLI controls Figma Desktop, not your editor, so nothing about it is Claude-only. Most people use Claude Code, but if Cursor is your tool, here's the whole setup.
@@ -100,9 +119,9 @@ Cursor builds it in Figma instantly.
 
 ---
 
-## How it connects to Figma: Yolo vs Safe mode
+## How it connects to Figma: Yolo, Browser, or Safe mode
 
-figma-cli talks to your Figma Desktop in one of two ways. Claude picks one during setup , here's what they mean, so you know what's happening:
+figma-cli talks to Figma in one of three ways. Claude picks one during setup , here's what they mean, so you know what's happening:
 
 ### ⚡ Yolo Mode , the default, recommended
 - **Fully automatic.** Claude sets it up, you do nothing.
@@ -110,13 +129,29 @@ figma-cli talks to your Figma Desktop in one of two ways. Claude picks one durin
 - "Yolo" sounds scary, but it's **safe and undoable** , Claude can un-patch it anytime, and nothing ever leaves your machine.
 - Just tell Claude *"connect to Figma"* and you're done.
 
+### 🌐 Browser Mode , same speed, without touching the Figma app
+- Runs Figma in a **normal Chromium browser** (Chrome / Edge / Brave / Chromium) and drives it over the same fast direct connection , **the Figma Desktop app is never patched or modified.**
+- Claude opens a browser window with remote debugging on, in its **own dedicated profile** (your Figma login and everyday browser stay untouched); you open your file there and keep working.
+- Best when you can't or don't want to modify the desktop app , company policy, a locked-down machine, or macOS won't grant the "App Management" permission the patch needs. Just as fast as Yolo, and still fully local (no API key, no cloud).
+- Tell Claude *"connect to Figma in browser mode"*.
+
 ### 🛡️ Safe Mode , no changes to the Figma app
 - **Doesn't touch the Figma app at all.** Instead it uses a tiny built-in Figma plugin.
 - You run it once from Figma's **Plugins → Development → FigCli** and keep that plugin open while you work.
 - A little more manual (you start the plugin), but **zero modifications** to Figma itself , good if you, or your company's IT policy, don't want the app patched.
 - Tell Claude *"connect to Figma in safe mode"*.
 
-**Both do exactly the same things.** Unsure? Use Yolo. Want nothing changed on your Figma app? Use Safe. You can switch anytime , just ask Claude.
+**All three do exactly the same things.** Unsure? Use Yolo. Want nothing changed on your Figma app but still want the fast direct path? Use **Browser**. Prefer the official plugin route? Use Safe. You can switch anytime , just ask Claude.
+
+### Custom debug port (advanced)
+Yolo and Browser mode both talk to Figma over CDP on port **9222** by default. If something else on your machine already uses that port (another Chrome with remote debugging, a browser automation tool), point figma-cli at a different one:
+
+```bash
+figma-cli --port 9333 connect     # flag
+FIGMA_PORT=9333 figma-cli connect  # or env var
+```
+
+Invalid values fall back to 9222, so `connect` keeps working out of the box.
 
 ---
 
@@ -168,6 +203,11 @@ Just say it in plain language. A few examples:
 - "Import this design system" *(point it at a `DESIGN.md` file , see below)*
 - "Switch this design from Stripe to Apple." *(swap a whole layout between brands)*
 - "Export this file's design system as markdown." *(any open file → `DESIGN.md` , see below)*
+
+**Animate (Figma Motion)**
+- "Fade this card in / make it pop / slide it in."
+- "Stagger these rows in one after another."
+- "Add a keyframe animation , opacity 0 to 1 over half a second."
 
 **Polish & hand off**
 - "Check the color contrast / touch targets / text sizes."
@@ -227,7 +267,7 @@ Prefer to keep everything on your machine? figma-cli also works with **local LLM
 
 ## Everything it can do
 
-**40+ ready components · 30+ capabilities · 8 areas.** You trigger any of these just by asking.
+**40+ ready components · 35+ capabilities · 9 areas.** You trigger any of these just by asking.
 
 **🧩 Components (40+ components + 3 tools)**
 - 40+ shadcn/ui components (buttons, cards, inputs, dialogs, tabs, calendar, sidebar, …) with real Lucide icons
@@ -253,6 +293,14 @@ Prefer to keep everything on your machine? figma-cli also works with **local LLM
 - Pre-built **blocks** (full dashboards, page layouts) in one step
 - Precise absolute positioning (pin to corners, center, stretch)
 - Sections and layout grids to organize the canvas
+
+**🎬 Motion & animation (5)** *(Figma Motion, Config 2026 Beta)*
+- **Keyframe any property** , opacity, position, scale, rotation, corner radius, fills/strokes , with multi-step timing and per-keyframe easing
+- **Presets** for instant polish: fade-in, fade-up, slide, pop, spin
+- **Stagger / sequence** the same animation across many layers with one command
+- Apply Figma's **first-party animation styles** and set **timeline** duration
+- Author complex, multi-layer animations from a single JSON spec; inspect any layer's motion by numbers
+- *Beta caveat:* Figma's Motion Beta may pair the animated frame (a second, identically-stacked copy in the Layers panel). It's a Figma-side behavior, cosmetically invisible on canvas, and must not be deleted (the pair is linked). Apply motion once and don't re-run on the same frame.
 
 **♿ Accessibility (4)**
 - Contrast checking (WCAG)
@@ -286,7 +334,7 @@ Prefer to keep everything on your machine? figma-cli also works with **local LLM
 Everything above is powered by a CLI that the AI calls for you. If you want to use it directly, script it, or see every command:
 
 - **[REFERENCE.md](REFERENCE.md)** , full command reference (tokens, render/JSX, components, gradients, a11y, export, the offline Figma API spec, and more).
-- Two connection modes: **Yolo** (direct, recommended) and **Safe** (plugin-based, no patching). Claude picks the right one during setup.
+- Three connection modes: **Yolo** (direct, patches the desktop app, recommended), **Browser** (same direct speed via a Chromium browser, never modifies the Figma app), and **Safe** (plugin-based, no patching). Claude picks the right one during setup.
 
 You don't need any of this to use the tool , it's here for tinkerers.
 

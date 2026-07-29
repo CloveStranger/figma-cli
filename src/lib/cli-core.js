@@ -404,16 +404,16 @@ async function fastEval(code) {
 
 // Fast render via daemon (falls back to direct connection)
 async function fastRender(jsx) {
-  // Try daemon first (auto-restarting it if it idle-shut-down)
+  // The daemon OWNS the render once it's up. Do NOT fall back to a direct
+  // render if the daemon call fails: the daemon may have already created the
+  // frame before a transient error (a CDP hiccup under load — several heavy
+  // files open), and a second render would silently DUPLICATE it. Surface the
+  // error instead. Only render directly when the daemon can't be started at all.
   if (await ensureDaemonRunning()) {
-    try {
-      return await daemonExec('render', { jsx });
-    } catch (e) {
-      // Continue to fallback
-    }
+    return await daemonExec('render', { jsx });
   }
 
-  // Fall back to direct connection
+  // Daemon genuinely unavailable — safe to render directly (single execution).
   const client = await getFigmaClient();
   return await client.render(jsx);
 }
@@ -459,8 +459,11 @@ function startDaemon(forceRestart = false, mode = 'auto') {
   });
   child.unref();
 
-  // Save PID
-  writeFileSync(DAEMON_PID_FILE, String(child.pid));
+  // Do NOT write the PID file here. Under a concurrent check-then-act race two
+  // CLIs can each spawn a daemon; only one wins the port bind. The WINNING daemon
+  // writes its own pid on listen-success (see daemon.js); the loser exits on
+  // EADDRINUSE without touching it. Writing child.pid here (the loser's) is what
+  // caused the PID file to point at a dead process → daemon churn.
   invalidateDaemonHealthCache(); // state changed — don't serve a stale "down"
   return true;
 }
@@ -512,6 +515,15 @@ const CONFIG_DIR = join(homedir(), '.figma-ds-cli');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
 
 const program = new Command();
+
+program.option('--port <number>', 'CDP port for Figma connection (default: 9222, env: FIGMA_PORT)');
+
+program.hook('preAction', (thisCommand) => {
+  const opts = thisCommand.opts();
+  if (opts.port) {
+    process.env.FIGMA_PORT = String(opts.port);
+  }
+});
 
 // Helper: Prompt user
 function prompt(question) {

@@ -6,6 +6,7 @@ import { tmpdir } from 'os';
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { FigmaClient } from '../figma-client.js';
 import { getFigmaVersion, isFigmaRunning, platformName } from '../platform.js';
+import { getCdpPort } from '../figma-patch.js';
 import {
   program,
   CONFIG_DIR,
@@ -367,8 +368,11 @@ program
       // - var:name syntax for variable binding
       // - <Slot> elements for component slots
       // - <Icon> elements
+      // - Ellipse/Circle arc/innerRadius (rings, spinners, donut/pie) — the
+      //   external figma-use renderer silently drops these, so route to ours
       // - gradient/effects/blur (needs full parser, fast-path doesn't handle them)
       if (jsx.includes('var:') || jsx.includes('<Slot') || jsx.includes('<Icon') ||
+          /\barc=|\barcStart=|\binnerRadius=/.test(jsx) ||
           /-gradient\s*\(/i.test(jsx) || jsx.includes('shadow=') || jsx.includes('innerShadow=') ||
           jsx.includes('blur=') || jsx.includes('bgBlur=') || jsx.includes('image=') ||
           jsx.includes('noise=') || jsx.includes('texture=') || jsx.includes('progressiveBlur=') ||
@@ -652,15 +656,16 @@ program
     }
 
     // 5. Remote debugging port
+    const cdpPort = getCdpPort();
     try {
-      const response = await fetch('http://127.0.0.1:9222/json/version', { signal: AbortSignal.timeout(2000) });
+      const response = await fetch(`http://127.0.0.1:${cdpPort}/json/version`, { signal: AbortSignal.timeout(2000) });
       if (response.ok) {
-        console.log(chalk.green('✓ Remote debugging enabled (port 9222)'));
+        console.log(chalk.green(`✓ Remote debugging enabled (port ${cdpPort})`));
       } else {
         console.log(chalk.red('✗ Remote debugging port not responding'));
       }
     } catch {
-      console.log(chalk.red('✗ Remote debugging not available (port 9222 closed)'));
+      console.log(chalk.red(`✗ Remote debugging not available (port ${cdpPort} closed)`));
       console.log(chalk.gray('  → Run: node src/index.js connect'));
     }
 
