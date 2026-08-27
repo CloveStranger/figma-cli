@@ -1,13 +1,14 @@
 # figma-cli
 
 <p align="center">
-  <a href="https://intodesignsystems.com"><img src="https://img.shields.io/badge/Into_Design_Systems-intodesignsystems.com-ff6b35" alt="Into Design Systems"></a>
+  <a href="https://www.intodesignsystems.com/"><img src="https://img.shields.io/badge/Into_Design_Systems-intodesignsystems.com-ff6b35" alt="Into Design Systems"></a>
   <img src="https://img.shields.io/badge/Figma-Desktop-purple" alt="Figma Desktop">
   <img src="https://img.shields.io/badge/No_API_Key-Required-green" alt="No API Key">
   <img src="https://img.shields.io/badge/No_MCP-Required-green" alt="No MCP Required">
   <img src="https://img.shields.io/badge/No_Rate_Limits-✓-green" alt="No Rate Limits">
   <img src="https://img.shields.io/badge/Works_in-Claude_Code-D97757?logo=claude&logoColor=white" alt="Works in Claude Code">
   <a href="#using-cursor"><img src="https://img.shields.io/badge/Works_in-Cursor-000000?logo=cursor&logoColor=white" alt="Works in Cursor"></a>
+  <a href="https://www.linkedin.com/in/silbormueller"><img src="https://img.shields.io/badge/Built_by-Sil_Bormüller-0A66C2?logo=linkedin&logoColor=white" alt="Built by Sil Bormüller"></a>
 </p>
 
 <p align="center">
@@ -259,6 +260,37 @@ Huge files stay usable: when the structure trees alone would blow an AI context 
 
 ---
 
+## Validate a design system without AI in the loop
+
+A DESIGN.md is prose. An AI has to interpret it, so the only way to answer "is this still correct?" is a human looking at it. That is fine for building and useless for verifying.
+
+So there is a second, deterministic half. No model takes part in it at all.
+
+```bash
+figma-cli snapshot     # → design.json, a canonical contract of the file (commit it)
+figma-cli rules gen    # → rules/*.yaml, one contract per component
+figma-cli check        # verify the open file against both, exit 1 on any violation
+```
+
+`design.json` is canonical: node ids, publish keys and timestamps are stripped, unordered sets sorted, floats rounded. The same system re-extracted, or exported and re-imported, compares byte-identical, so a difference always means a real change. The YAML contracts are generated **by code reading the Figma Plugin API**, not written by a model, and you review them once as a git diff.
+
+What `check` enforces:
+
+- **Drift** , anything that changed since the contract, reported with the exact path (`pages/Page 1/frames/Button/kids/size=sm/h: 32 → 56`)
+- **Variant matrix** , every combination present, no unexpected axis values
+- **Token binding** , every fill and stroke bound to a variable, so hardcoded hex gets caught. Measured across **all** variants, not a sample
+- **Geometry** , heights within a stated tolerance, so a size regression is caught by number instead of by eye
+- **State machine** , prototype transitions still wired ("on hover go to state=hover")
+- **Roundtrip** (`--roundtrip`) , proof that the token layer survives export and import, which is the failure that used to silently re-import everything white
+
+It exits non-zero and speaks `--json`, so it runs in CI. Red means *changed*, not *wrong*: if the change was intended, re-run `snapshot` and review the diff, exactly like a snapshot test.
+
+Verified against GitHub's Primer (1015 nodes, 1381 variables, a 144-variant Button): repeated runs compare equal, all 576 fills and 144 strokes across every variant check out, and a one-character typo in a single variant name is caught in under a second.
+
+What stays human is whether the contract describes the right design. You decide that once. After that it is arithmetic.
+
+---
+
 ## Works offline / with local AI
 
 Prefer to keep everything on your machine? figma-cli also works with **local LLMs** (via LM Studio or Ollama) , fully offline, no cloud, no key. Ask Claude to "set up the local LLM agent" and it'll walk you through it.
@@ -267,7 +299,7 @@ Prefer to keep everything on your machine? figma-cli also works with **local LLM
 
 ## Everything it can do
 
-**40+ ready components · 35+ capabilities · 9 areas.** You trigger any of these just by asking.
+**40+ ready components · 40+ capabilities · 10 areas.** You trigger any of these just by asking.
 
 **🧩 Components (40+ components + 3 tools)**
 - 40+ shadcn/ui components (buttons, cards, inputs, dialogs, tabs, calendar, sidebar, …) with real Lucide icons
@@ -301,6 +333,13 @@ Prefer to keep everything on your machine? figma-cli also works with **local LLM
 - Apply Figma's **first-party animation styles** and set **timeline** duration
 - Author complex, multi-layer animations from a single JSON spec; inspect any layer's motion by numbers
 - *Beta caveat:* Figma's Motion Beta may pair the animated frame (a second, identically-stacked copy in the Layers panel). It's a Figma-side behavior, cosmetically invisible on canvas, and must not be deleted (the pair is linked). Apply motion once and don't re-run on the same frame.
+
+**✅ Deterministic validation (5)** *(no model involved, CI-ready)*
+- **Snapshot** the whole system to a canonical `design.json` and catch any later drift, with the exact path that changed
+- **YAML contracts per component** , generated from the file itself, enforcing the variant matrix, axis values and geometry tolerances
+- **Token-binding checks** across every variant, so a hardcoded hex can't sneak back in
+- **State-machine checks** , prototype transitions ("on hover go to state=hover") verified, not assumed
+- **Roundtrip proof** that the token layer survives export and import, the failure that otherwise re-imports everything white
 
 **♿ Accessibility (4)**
 - Contrast checking (WCAG)
@@ -336,6 +375,19 @@ Everything above is powered by a CLI that the AI calls for you. If you want to u
 - **[REFERENCE.md](REFERENCE.md)** , full command reference (tokens, render/JSX, components, gradients, a11y, export, the offline Figma API spec, and more).
 - Three connection modes: **Yolo** (direct, patches the desktop app, recommended), **Browser** (same direct speed via a Chromium browser, never modifies the Figma app), and **Safe** (plugin-based, no patching). Claude picks the right one during setup.
 
+**Auto-layout, by example.** `npm run examples` renders a labelled gallery of the
+auto-layout patterns that are easy to get wrong , wrapping card, space-between
+navbar, stretching divider, toggle knobs, bottom-pinned sidebar, wrap grid,
+min/max constraints, fill chain, z-stack , onto a page called "Auto-Layout
+Patterns". It then **measures** what Figma actually produced and fails if any
+number drifts, so it is documentation and a regression test at once.
+
+```bash
+npm test          # unit tests, no Figma needed
+npm run examples  # render + verify the pattern gallery (needs a connected Figma)
+npm run test:live # the above, plus render vs render-batch layout parity
+```
+
 You don't need any of this to use the tool , it's here for tinkerers.
 
 ---
@@ -348,6 +400,26 @@ Figma plugins are slow to build and tied to one UI. AI assistants are great at *
 
 ---
 
+## Security
+
+What each connection mode touches (Yolo patches one string in Figma's `app.asar`, Browser and Safe Mode leave the app alone), what the local daemon does, and where credentials live: [SECURITY.md](SECURITY.md). That is also the page to hand to whoever approves tools at your company.
+
+Found a vulnerability? Report it privately via [GitHub private vulnerability reporting](https://github.com/silships/figma-cli/security/advisories/new) or sil@intodesignsystems.com, not in a public issue.
+
+---
+
+## Who built this
+
+**Sil Bormüller**, founder of [Into Design Systems](https://www.intodesignsystems.com/), the conference and training platform for design system practitioners.
+
+- LinkedIn: [linkedin.com/in/silbormueller](https://www.linkedin.com/in/silbormueller)
+- Personal site: [silbormueller.com](https://www.silbormueller.com/)
+- Into Design Systems: [intodesignsystems.com](https://www.intodesignsystems.com/)
+- Newsletter with tutorials: [intodesignsystems.substack.com](https://intodesignsystems.substack.com/)
+- GitHub: [@silships](https://github.com/silships)
+
+---
+
 ## License
 
-MIT. Built by [Sil Bormüller](https://intodesignsystems.com).
+MIT. Built by [Sil Bormüller](https://www.linkedin.com/in/silbormueller).

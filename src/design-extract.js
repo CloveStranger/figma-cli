@@ -51,7 +51,11 @@ const VAR_EVAL_HELPERS = `
       for (const m of modes) {
         const raw = v.valuesByMode[m.id];
         if (raw == null) continue;
-        if (typeof raw === 'object' && raw.type === 'VARIABLE_ALIAS') values[m.name] = { alias: await aliasName(raw.id) };
+        // aliasId travels alongside the resolved name: names are unique per
+        // COLLECTION only, so a themed library repeats e.g. base/color/neutral/1
+        // in its light and dark collections with different values. Only the id
+        // says which one this mode points at (see resolveAliases).
+        if (typeof raw === 'object' && raw.type === 'VARIABLE_ALIAS') values[m.name] = { alias: await aliasName(raw.id), aliasId: raw.id };
         else if (v.resolvedType === 'COLOR' && raw && typeof raw === 'object' && 'r' in raw) values[m.name] = hex(raw);
         else values[m.name] = raw;
       }
@@ -114,6 +118,99 @@ export function variableChunkCode(ids, modes) {
 }
 
 /**
+ * Eval snippet: find every variable that local variables alias INTO but that
+ * does not live in this file — i.e. the primitives of an enabled library.
+ *
+ * Why this exists: `extract` can only read LOCAL collections. A system whose
+ * semantic layer aliases into a shared primitive library (Primer → base/color,
+ * but equally any team's "Foundations" library) exports as
+ * `→ var:base/color/neutral/13` with nothing behind it, and `import` then
+ * recreates those variables with NO value — every affected token resolves to
+ * white in the target file. Capturing the library's variables as a normal
+ * collection keeps the whole alias chain intact on re-import.
+ *
+ * Returns { collections: [{ id, name, modes:[{id,name}], ids:[…] }], truncated }
+ * — ids only, no values: the caller fetches those through the same chunked
+ * path as local variables, so one huge library can never blow the payload.
+ * BFS, so a library aliasing into a second library is captured too.
+ */
+export function remoteAliasTargetsCode({ max = 5000 } = {}) {
+  return `(async () => {
+    const MAX = ${Number(max)};
+    let cols = [];
+    try { cols = await figma.variables.getLocalVariableCollectionsAsync(); } catch (e) { return JSON.stringify({ collections: [], truncated: false }); }
+    const localIds = new Set();
+    for (const c of cols) for (const id of c.variableIds) localIds.add(id);
+
+    const queue = [];
+    const seen = new Set();
+    const enqueueAliases = (v) => {
+      const vals = v.valuesByMode || {};
+      for (const k in vals) {
+        const raw = vals[k];
+        if (raw && typeof raw === 'object' && raw.type === 'VARIABLE_ALIAS' && !localIds.has(raw.id) && !seen.has(raw.id)) {
+          seen.add(raw.id);
+          queue.push(raw.id);
+        }
+      }
+    };
+
+    for (const c of cols) {
+      for (const id of c.variableIds) {
+        let v = null;
+        try { v = await figma.variables.getVariableByIdAsync(id); } catch (e) {}
+        if (v) enqueueAliases(v);
+      }
+    }
+
+    const byCol = new Map();
+    let truncated = false;
+    for (let i = 0; i < queue.length; i++) {
+      if (i >= MAX) { truncated = true; break; }
+      let v = null;
+      try { v = await figma.variables.getVariableByIdAsync(queue[i]); } catch (e) {}
+      if (!v) continue;
+      enqueueAliases(v); // a library may alias into another library
+      const colId = v.variableCollectionId;
+      if (!byCol.has(colId)) {
+        let rc = null;
+        try { rc = await figma.variables.getVariableCollectionByIdAsync(colId); } catch (e) {}
+        byCol.set(colId, {
+          id: colId,
+          name: (rc && rc.name) || 'library',
+          modes: (rc && rc.modes) ? rc.modes.map(m => ({ id: m.modeId, name: m.name })) : [{ id: 'default', name: 'default' }],
+          ids: [],
+        });
+      }
+      byCol.get(colId).ids.push(v.id);
+    }
+
+    return JSON.stringify({ collections: Array.from(byCol.values()), truncated });
+  })()`;
+}
+
+/**
+ * Names of every alias target that no captured collection defines — i.e. the
+ * values `import` would silently recreate as empty (white). Pure, so `extract`
+ * can warn about a missing library for free, without another Figma round trip.
+ * Returns a sorted, de-duplicated array of variable names.
+ */
+export function danglingAliasNames(collections = []) {
+  const known = new Set();
+  for (const col of collections)
+    for (const v of col.variables || []) { known.add(v.name); known.add(v.id); }
+  const missing = new Set();
+  for (const col of collections) {
+    for (const v of col.variables || []) {
+      for (const val of Object.values(v.values || {})) {
+        if (val && typeof val === 'object' && 'alias' in val && !known.has(val.alias)) missing.add(val.alias);
+      }
+    }
+  }
+  return [...missing].sort();
+}
+
+/**
  * Eval snippet: walk one page and return its compact node tree.
  * Kept self-contained — no outer-scope references — because it runs in the
  * Figma plugin sandbox.
@@ -133,8 +230,51 @@ export function walkerCode(pageId, { maxDepth = 8, textLimit = 80 } = {}) {
       }
       return out.length ? out : undefined;
     };
+    // id → name for the whole page, built once. Prototype reactions point at
+    // DESTINATION IDS, which are volatile (they change on every re-import), so
+    // they are resolved to names here — inside the eval, where the lookup is
+    // free — rather than leaking ids into the extraction.
+    const nameById = new Map();
+    const indexNames = (n) => { nameById.set(n.id, n.name); if ('children' in n) n.children.forEach(indexNames); };
+    // Bound variables are captured as raw ids and resolved to token NAMES
+    // Node-side (see resolveBoundVars), because the id→name map for variables
+    // already exists there and re-reading it per node would be O(n) async calls.
+    const boundVars = (n) => {
+      let bv;
+      try { bv = n.boundVariables; } catch (e) { return undefined; }
+      if (!bv) return undefined;
+      const out = {};
+      for (const k of Object.keys(bv)) {
+        const v = bv[k];
+        if (Array.isArray(v)) { const ids = v.map(a => a && a.id).filter(Boolean); if (ids.length) out[k] = ids; }
+        else if (v && v.id) out[k] = v.id;
+      }
+      return Object.keys(out).length ? out : undefined;
+    };
+    // A component's interactive behaviour: "on X go to Y". This is the state
+    // machine a design system actually promises, and it is fully mechanical to
+    // verify — no screenshot needed.
+    const reactions = (n) => {
+      let rs;
+      try { rs = n.reactions; } catch (e) { return undefined; }
+      if (!Array.isArray(rs) || !rs.length) return undefined;
+      const out = [];
+      for (const r of rs) {
+        const trigger = r.trigger && r.trigger.type;
+        for (const a of (r.actions || (r.action ? [r.action] : []))) {
+          if (!a) continue;
+          const entry = { on: trigger || 'UNKNOWN', do: a.type };
+          if (a.destinationId != null) entry.to = nameById.get(a.destinationId) || '(outside page)';
+          if (a.navigation) entry.nav = a.navigation;
+          out.push(entry);
+        }
+      }
+      return out.length ? out : undefined;
+    };
     const walk = (n, depth) => {
       const o = { t: n.type, n: n.name };
+      const bv = boundVars(n); if (bv) o.bv = bv;
+      const rx = reactions(n); if (rx) o.rx = rx;
       if ('width' in n) { o.w = Math.round(n.width); o.h = Math.round(n.height); }
       if ('layoutMode' in n && n.layoutMode !== 'NONE') {
         o.lm = n.layoutMode;
@@ -192,11 +332,160 @@ export function walkerCode(pageId, { maxDepth = 8, textLimit = 80 } = {}) {
     const page = await figma.getNodeByIdAsync(${JSON.stringify(String(pageId))});
     if (!page) return JSON.stringify({ error: 'page not found' });
     if (typeof page.loadAsync === 'function') await page.loadAsync();
+    indexNames(page);
     let visited = 0;
     const count = (n) => { visited++; if ('children' in n) n.children.forEach(count); };
     count(page);
     return JSON.stringify({ id: page.id, name: page.name, nodeCount: visited, frames: page.children.map(c => walk(c, 0)) });
   })()`;
+}
+
+/**
+ * Eval snippet: audit EVERY variant of every component set on the given pages.
+ *
+ * Why this is separate from the walker: the walker samples one child of a set
+ * because carrying 144 deep variant trees would blow the payload. But the
+ * questions that matter for a contract — "is every colour token-bound?", "what
+ * transitions exist?" — need all of them. So the aggregation happens INSIDE
+ * Figma and only counts (plus a few examples) come back. Payload is O(number of
+ * component sets), not O(nodes), so a 144-variant set costs the same as a
+ * 2-variant one.
+ *
+ * Returns [{ page, name, variants, fills:{total,bound,raw[]}, strokes:{…},
+ *            transitions:[{from,on,to,do}], tokens:[names…] }].
+ */
+export function componentAuditCode(pageIds, { maxUnbound = 8, maxDepth = 12 } = {}) {
+  return `(async () => {
+    const PAGE_IDS = ${JSON.stringify(pageIds.map(String))};
+    const MAX_UNBOUND = ${Number(maxUnbound)};
+    const MAX_DEPTH = ${Number(maxDepth)};
+    const hex = (c) => '#' + [c.r, c.g, c.b].map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join('');
+    const nameCache = new Map();
+    const varName = async (id) => {
+      if (nameCache.has(id)) return nameCache.get(id);
+      let name = null;
+      try { const v = await figma.variables.getVariableByIdAsync(id); if (v) name = v.name; } catch (e) {}
+      nameCache.set(id, name);
+      return name;
+    };
+    const out = [];
+    for (const pid of PAGE_IDS) {
+      let page;
+      try { page = await figma.getNodeByIdAsync(pid); } catch (e) { continue; }
+      if (!page) continue;
+      if (typeof page.loadAsync === 'function') await page.loadAsync();
+      // id → name for the page, so reaction destinations resolve to stable
+      // names instead of volatile ids.
+      const nameById = new Map();
+      const index = (n) => { nameById.set(n.id, n.name); if ('children' in n) n.children.forEach(index); };
+      index(page);
+
+      const sets = [];
+      const findSets = (n) => {
+        if (n.type === 'COMPONENT_SET') { sets.push(n); return; }
+        if ('children' in n) n.children.forEach(findSets);
+      };
+      page.children.forEach(findSets);
+
+      for (const set of sets) {
+        const mk = () => ({ total: 0, bound: 0, raw: [], ids: [] });
+        const acc = { fills: mk(), strokes: mk() };
+        const transitions = [];
+        const visit = (n, depth) => {
+          for (const kind of ['fills', 'strokes']) {
+            let paints;
+            try { paints = n[kind]; } catch (e) { paints = null; }
+            if (!Array.isArray(paints) || !paints.length) continue;
+            let bv = null;
+            try { bv = n.boundVariables && n.boundVariables[kind]; } catch (e) {}
+            for (let i = 0; i < paints.length; i++) {
+              const p = paints[i];
+              if (!p || p.visible === false || p.type !== 'SOLID') continue;
+              acc[kind].total++;
+              const alias = Array.isArray(bv) ? bv[i] : null;
+              if (alias && alias.id) { acc[kind].bound++; acc[kind].ids.push(alias.id); }
+              else if (acc[kind].raw.length < MAX_UNBOUND) acc[kind].raw.push({ node: n.name, value: hex(p.color) });
+            }
+          }
+          let rs = null;
+          try { rs = n.reactions; } catch (e) {}
+          if (Array.isArray(rs)) {
+            for (const r of rs) {
+              const trigger = r.trigger && r.trigger.type;
+              for (const a of (r.actions || (r.action ? [r.action] : []))) {
+                if (!a) continue;
+                const e = { from: n.name, on: trigger || 'UNKNOWN', do: a.type, to: null };
+                if (a.destinationId != null) e.to = nameById.get(a.destinationId) || '(outside page)';
+                transitions.push(e);
+              }
+            }
+          }
+          if (depth < MAX_DEPTH && 'children' in n) for (const c of n.children) visit(c, depth + 1);
+        };
+        visit(set, 0);
+
+        // Resolve the distinct bound-variable ids to token names. A binding
+        // whose target cannot be named is NOT counted as bound: the contract
+        // could not verify a claim about a token it cannot see.
+        const tokens = new Set();
+        for (const kind of ['fills', 'strokes']) {
+          let unnameable = 0;
+          for (const id of acc[kind].ids) {
+            const nm = await varName(id);
+            if (nm) tokens.add(nm); else unnameable++;
+          }
+          acc[kind].bound -= unnameable;
+          delete acc[kind].ids;
+        }
+        out.push({
+          page: page.name,
+          name: set.name,
+          variants: set.children.length,
+          fills: acc.fills,
+          strokes: acc.strokes,
+          transitions,
+          tokens: [...tokens].sort(),
+        });
+      }
+    }
+    return JSON.stringify(out);
+  })()`;
+}
+
+/**
+ * Marker for a bound variable whose target was not part of this export (it
+ * lives in a library that was not captured). The raw id is deliberately NOT
+ * kept: ids are volatile, so keeping one would make the snapshot report drift
+ * on every re-import. "Bound to something we cannot name" is the honest,
+ * deterministic answer — and `--resolve-remote` is the fix.
+ */
+export const UNRESOLVED_VAR = '?';
+
+/**
+ * Rewrite every node's `bv` (bound-variable ids from the walker) to qualified
+ * token names — `collection:name`, qualified because variable names are only
+ * unique per collection. Mutates nothing: returns new page objects. Pure.
+ */
+export function resolveBoundVars(pages = [], collections = []) {
+  const byId = new Map();
+  for (const col of collections) {
+    for (const v of col.variables || []) byId.set(v.id, `${col.name}:${v.name}`);
+  }
+  const nameFor = (id) => byId.get(id) || UNRESOLVED_VAR;
+  const fixNode = (n) => {
+    if (!n || typeof n !== 'object') return n;
+    const out = { ...n };
+    if (n.bv) {
+      const bv = {};
+      for (const [k, v] of Object.entries(n.bv)) {
+        bv[k] = Array.isArray(v) ? v.map(nameFor) : nameFor(v);
+      }
+      out.bv = bv;
+    }
+    if (Array.isArray(n.kids)) out.kids = n.kids.map(fixNode);
+    return out;
+  };
+  return pages.map(p => ({ ...p, frames: (p.frames || []).map(fixNode) }));
 }
 
 // ============ Aggregator (pure, Node-side) ============
@@ -454,15 +743,40 @@ export function reuseHandleLine({ key, id } = {}) {
  * new structure, does not mutate the input.
  */
 export function resolveAliases(collections = []) {
+  // Collection names are not unique in Figma (a themed library ships several
+  // "base/color/light"-style collections, and a file can simply have two
+  // collections with one name). Uniquify FIRST so the name is a stable
+  // identity for both the token block and the alias qualifier below.
+  const usedNames = new Set();
+  const colNames = collections.map(col => {
+    let name = col.name;
+    for (let n = 2; usedNames.has(name); n++) name = `${col.name} (${n})`;
+    usedNames.add(name);
+    return name;
+  });
+
   const idToName = new Map();
-  for (const col of collections)
-    for (const v of col.variables || []) idToName.set(v.id, v.name);
-  const resolveVal = (val) =>
-    val && typeof val === 'object' && 'alias' in val
-      ? { alias: idToName.get(val.alias) || val.alias }
-      : val;
-  return collections.map(col => ({
-    name: col.name,
+  const idToCollection = new Map();
+  collections.forEach((col, ci) => {
+    for (const v of col.variables || []) { idToName.set(v.id, v.name); idToCollection.set(v.id, colNames[ci]); }
+  });
+  // The target COLLECTION is carried alongside the name because variable names
+  // are only unique per collection: a themed library ships `base/color/green/5`
+  // in base/color/light AND base/color/dark with different values. Resolving by
+  // name alone would wire every mode to whichever collection was seen first —
+  // i.e. a dark-mode token silently getting the light-mode value.
+  const resolveVal = (val) => {
+    if (!(val && typeof val === 'object' && 'alias' in val)) return val;
+    // `alias` may already be a name (the capture resolves it) — `aliasId` is the
+    // authoritative reference. Fall back to `alias` so older captures still work.
+    const ref = val.aliasId != null ? val.aliasId : val.alias;
+    const out = { alias: idToName.get(ref) || val.alias };
+    const coll = idToCollection.get(ref);
+    if (coll) out.collection = coll;
+    return out;
+  };
+  return collections.map((col, ci) => ({
+    name: colNames[ci],
     modes: (col.modes || []).map(m => m.name),
     variables: (col.variables || []).map(v => ({
       name: v.name, type: v.type,

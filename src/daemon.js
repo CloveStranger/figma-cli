@@ -20,6 +20,7 @@ import { readFileSync, statSync, writeFileSync, unlinkSync, readdirSync } from '
 import { join, dirname } from 'path';
 import { homedir, tmpdir } from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
+import { wrapCodeIfNeeded } from './lib/eval-wrap.js';
 
 // Hot-reload FigmaClient: copy to temp file and import (Node.js ES modules don't support cache busting)
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -201,7 +202,10 @@ async function getCdpClient() {
   try {
     const ClientClass = await getFigmaClient();
     cdpClient = new ClientClass();
-    await cdpClient.connect();
+    // FIGMA_FILE pins the daemon to a specific open file (substring match on the
+    // tab title). Without it Figma's first design tab wins, which silently sends
+    // commands to the wrong file when several are open.
+    await cdpClient.connect(process.env.FIGMA_FILE || null);
     lastHealthCheck = Date.now();
     lastHealthResult = true;
     console.log('[daemon] Connected to Figma via CDP (Yolo Mode)');
@@ -281,31 +285,6 @@ async function evalBatchViaPlugin(codes) {
 
 // ============ UNIFIED EVAL ============
 
-/**
- * Wrap code to handle top-level return statements
- * CDP's Runtime.evaluate doesn't support bare return, so wrap in IIFE if needed
- */
-function wrapCodeIfNeeded(code) {
-  const trimmed = code.trim();
-
-  // Already wrapped in IIFE or async IIFE
-  if (trimmed.startsWith('(async') || trimmed.startsWith('(function') || trimmed.startsWith('(() =>')) {
-    return code;
-  }
-
-  // Check if code has top-level return (not inside a function)
-  // Simple heuristic: if 'return' appears before the first '{' or at start
-  const hasTopLevelReturn = /^\s*return\b/.test(trimmed) ||
-    /;\s*return\b/.test(trimmed) ||
-    /^\s*const\s+\w+\s*=.*;\s*return\b/m.test(trimmed);
-
-  if (hasTopLevelReturn) {
-    // Wrap in async IIFE to support both sync and async code
-    return `(async () => { ${code} })()`;
-  }
-
-  return code;
-}
 
 async function executeEval(code) {
   // Auto mode: prefer plugin if connected, fallback to CDP
@@ -372,6 +351,10 @@ async function handleRequest(req, res) {
       mode: mode,
       plugin: pluginConnected,
       cdp: cdpHealthy,
+      // Which open file this daemon is bound to. The CLI compares it against
+      // FIGMA_FILE and rebinds when they diverge — otherwise commands silently
+      // hit whichever file happened to be first when the daemon started.
+      file: (cdpClient && cdpClient.pageTitle) || null,
       idleTimeoutMs: IDLE_TIMEOUT_MS
     }));
     return;

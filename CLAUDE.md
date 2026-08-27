@@ -27,6 +27,10 @@ CLI that controls Figma Desktop directly. No API key needed.
 | "match this mesh / blossom / aurora background" | `figma-cli gradient extract <image> --mode mesh --apply-to <frameId>` |
 | "create a wallpaper / mesh gradient from these colors" | `figma-cli gradient mesh "#a,#b,#c" --size 1920x1080` |
 | "export the design system as markdown" / "create a DESIGN.md" | `figma-cli extract` |
+| "make the design system testable" / "lock this in" / "contract" | `figma-cli snapshot` (writes design.json, commit it) |
+| "did anything change / drift?" / "verify the file" / "check in CI" | `figma-cli check` |
+| "write rules for our components" / "validate the components" | `figma-cli rules gen` then `figma-cli check` |
+| "prove the tokens survive a roundtrip" / "why did tokens import white" | `figma-cli check --roundtrip` |
 | "export only the tokens" | `figma-cli extract --sections tokens` |
 | "extract/document the X page" | `figma-cli extract --pages "X"` |
 | "extract what I selected" | `figma-cli extract --selection` |
@@ -48,6 +52,9 @@ CLI that controls Figma Desktop directly. No API key needed.
 | "show all variants" | `figma-cli combos` |
 | "create size variants" | `figma-cli sizes --base small` |
 | "make these frames a variant set" / "combine into variants" | `figma-cli variants from <ids> --property Size --values Small,Medium,Large --name Button` |
+| "combine these into ONE component with several properties" (variant × size × state) | `figma-cli variants from auto --multi --name Button` |
+| "the file uses our shared token library" / "colors came in white after import" | `figma-cli extract --resolve-remote` |
+| "work on the OTHER open file" / commands hit the wrong file | `FIGMA_FILE="File name" figma-cli <command>` |
 | "combine existing components into a variant set" | `figma-cli prop combine <ids> --name Button` |
 | "create a slot" | `figma-cli slot create "Name"` |
 | "list slots" | `figma-cli slot list` |
@@ -250,6 +257,16 @@ figma-cli var delete-all -c "primitives"  # Only specific collection
   palette. `figma-cli import` recreates those collections (modes + aliases) in
   the target file. Captured in chunks so large systems (1000s of vars) don't
   time out. `--sections variables` for variables-only.
+- **`--resolve-remote` (library primitives):** many systems keep their semantic
+  tokens local but alias into an ENABLED LIBRARY for the primitives (Primer →
+  `base/color/*`, in-house systems → a "Foundations" file). extract can only read
+  LOCAL collections, so without this flag those aliases point at nothing and
+  `import` recreates the tokens **with no value — everything renders white**.
+  `--resolve-remote` captures the library's variables as ordinary collections, so
+  the full chain (`button/primary/bgColor/rest → bgColor/success-emphasis →
+  base/color/green/5`) survives the roundtrip, per mode.
+  Extract WARNS when alias targets are missing, so you know when to re-run with it.
+  Use it whenever the file uses an external/shared token library.
 - **Auto-split:** when the structure trees alone exceed ~50k tokens (huge files
   like Primer Web), they move to `DESIGN-structure/` automatically and the main
   file stays AI-context-sized. `--split` forces this, `--no-split` prevents it.
@@ -258,6 +275,51 @@ figma-cli var delete-all -c "primitives"  # Only specific collection
 - After extraction, summarize what was captured (pages, token counts, skipped
   pages). Don't dump the file contents into chat.
 - Re-import with `figma-cli import <file>`.
+
+## Deterministic validation (snapshot / rules / check)
+
+DESIGN.md is prose: an AI has to interpret it, and only a human can say whether
+the result is right. `snapshot` / `rules` / `check` are the deterministic half —
+they compare NUMBERS and exit non-zero. No model is involved in the verdict, so
+they run in CI and cannot be argued with.
+
+```bash
+figma-cli snapshot              # → design.json, the canonical contract (COMMIT IT)
+figma-cli rules gen             # → rules/*.yaml, one contract per component set
+figma-cli check                 # verify the open file against both, exit 1 on failure
+figma-cli check --roundtrip     # + prove tokens survive extract → DESIGN.md → import
+figma-cli check --json          # machine-readable, for CI
+figma-cli check --only rules    # run a single part (snapshot | rules | roundtrip)
+```
+
+- **design.json** is canonical: node ids, publish keys and dates are stripped,
+  unordered sets sorted, floats rounded, so the SAME system re-extracted or
+  re-imported compares byte-identical. Child ORDER is kept (it is design intent).
+  Verified on Primer: two runs equal, one added frame → exactly 2 diffs.
+- **Drift vs intent:** red means "changed", not "wrong". If the change was
+  intended, re-run `snapshot` / `rules gen --force` and review the git diff.
+  This is a snapshot test, with the same workflow.
+- **rules/*.yaml** enforce what a component PROMISES: complete variant matrix
+  (`exhaustive`), axis values, `tokens.fills: bound` (no hardcoded hex),
+  geometry within a tolerance, and prototype transitions (`states`) — the actual
+  state machine. Generated from the live file, reviewed once, enforced forever.
+- **Axes come from Figma's `variantGroupProperties`**, never from the sampled
+  variant — the extraction samples ONE child of a set, so deriving axes from it
+  would describe a 1×1 matrix and silently enforce nothing.
+- **Token binding and transitions cover EVERY variant**, via a separate audit
+  eval that aggregates inside Figma and returns only counts (payload is O(sets),
+  not O(nodes)). Primer's Button: 576 fills + 144 strokes across 144 variants,
+  vs 1 fill when only the sample was measured. Contracts record which coverage
+  they were built with (`scope: all-variants` vs `sample-variant`), and `check`
+  REFUSES to pass an all-variant contract on sample-only evidence.
+- **`--resolve-remote` matters here:** a token bound into an uncaptured library
+  cannot be named, so it does NOT count as bound. Pass the flag for both
+  `rules gen` and `check` when the system aliases into a shared library.
+- **Scope must match:** `check` warns when its `--pages`/`--selection` scope
+  differs from the one the contract was taken with (otherwise every other page
+  reads as deleted).
+- Bumping the snapshot format invalidates old files on purpose — `check` says
+  "regenerate" rather than reporting bogus drift.
 
 ## Recreating components from a DESIGN.md (HARD RULE)
 
@@ -337,13 +399,29 @@ figma-cli set fill "var:primary"
 
 **Safe Mode:** `render` and `render-batch` work the same as in Yolo Mode, including text. Use `eval` with the native Figma API only when JSX can't express what you need.
 
+### Several files open → pin the target (`FIGMA_FILE`)
+
+The daemon binds to ONE open file, chosen when it starts (the first design tab).
+With several files open, commands silently hit the wrong one. Pin it:
+
+```bash
+FIGMA_FILE="Primer Check" figma-cli extract DESIGN.md   # substring of the file name
+```
+
+The CLI compares the pin against the daemon's bound file and rebinds
+automatically when they differ. Verify anytime with `figma-cli eval 'figma.root.name'`.
+
 ---
 
 ## JSX Syntax (render command)
 
 ```jsx
 // Layout
-flex="row"              // or "col"
+flex="row"              // or "col" — DEFAULT is "col", at every nesting depth.
+                        //   A Frame lays out identically whether it is the root
+                        //   or nested ten levels deep. Cross-axis alignment:
+                        //   rows center (icon+text), cols read top-left.
+                        //   Explicit justify=/items= always win.
 flex="none"             // no auto-layout: children OVERLAP at their x/y (z-stack)
                         //   for spinners (ring+arc), badges on avatars, layered art
 gap={16}                // spacing
@@ -358,7 +436,7 @@ items="center"          // cross axis: start, center, end
 // Size
 w={320} h={200}         // fixed
 w="fill" h="fill"       // fill parent
-minW={100} maxW={500} minH={50} maxH={300}
+minW={100} maxW={500} minH={50} maxH={300}   // real constraints, clamp FILL/HUG
 
 // Appearance
 bg="#fff"               // fill color
@@ -421,6 +499,37 @@ fontWeight="bold"     →  weight="bold"
 ---
 
 ## Critical Pitfalls
+
+### 0. `w="fill"` needs a parent that isn't hugging that axis
+
+A child can only fill an axis its parent has a size on. If the parent HUGs that
+axis, Figma has nothing to resolve against and the child collapses (Figma's own
+UI disables "fill container" in this situation). `render` warns when it happens:
+
+```
+⚠ 1 auto-layout problem(s):
+  "kid" fills width, but its parent "Card" hugs that axis and nothing else sets it
+```
+
+```jsx
+// BAD: parent hugs width, child has nothing to fill → collapses
+<Frame flex="col" p={8}>
+  <Frame w="fill" h={20} bg="#3b82f6" />
+</Frame>
+
+// GOOD: give the parent a width…
+<Frame flex="col" p={8} w={200}>
+  <Frame w="fill" h={20} bg="#3b82f6" />
+</Frame>
+
+// …or let the child size itself and the parent hug around it
+<Frame flex="col" p={8}>
+  <Frame w={160} h={20} bg="#3b82f6" />
+</Frame>
+```
+
+A divider is the exception and does NOT warn: `<Frame w={1} stretch />` in a
+hug-height row is correct, because the text siblings set the height.
 
 ### 1. Text gets cut off (MOST COMMON BUG)
 
@@ -594,6 +703,25 @@ figma-cli variants from 1:2,1:3,1:4 \
 # Works for any property axis: state, color, density, intent
 figma-cli variants from 5:10,5:11 --property State --values Default,Hover
 ```
+
+**Multi-axis sets (`--multi`) — the real-design-system case.** One property is
+rarely enough: a Button is `variant × size × state × alignContent`. With
+`--multi` each node KEEPS its own `prop=value, prop2=value2` name and Figma
+derives every axis from it. Render the variants with those names, then combine:
+
+```bash
+# 1. render each variant named with its axes (any number of axes)
+figma-cli render-batch '["<Frame name=\"variant=primary, size=small, state=rest\" …>…</Frame>", …]' --as-component
+
+# 2. combine — "auto" picks up every page-level node named prop=value,
+#    so you never paste 144 ids into a shell command
+figma-cli variants from auto --multi --name Button
+```
+
+`<ids>` accepts a comma list, `selection` (current Figma selection) or `auto`.
+The command validates BEFORE touching the file: all nodes must share the same
+axis names and every combination must be unique — it fails with the exact
+mismatch instead of letting Figma invent bogus "Property 1" axes.
 
 **When NOT to use it:**
 - One frame that should just become a single component → use `node to-component`.

@@ -2,6 +2,90 @@
 
 ## Unreleased
 
+### Fixed — auto-layout
+
+The recurring "auto-layout is behaving weirdly" reports had one root cause:
+identical JSX was laid out by **different code** depending on where it sat and
+which command created it. `render` chose between three implementations (the JSX
+parser, a "fast path", and the external `figma-use` binary), `render-batch`
+always used the parser, and the parser's root and nested branches disagreed with
+each other. A live harness that renders the same JSX through both commands and
+diffs the resulting node trees by numbers found **9 of 10 cases differing**.
+
+- **A Frame without `flex` is now a column at every depth.** It used to be a
+  column at the root and a **row** when nested — the layout direction silently
+  flipped with nesting depth.
+- **Nested frames no longer center their children by accident.** A frame without
+  an explicit `flex` was treated as a row for alignment, so plain wrapper frames
+  set `counterAxisAlignItems = CENTER` and quietly centered titles and cells.
+  Alignment now resolves through one shared helper: rows center their cross axis
+  (icon+text in a row), everything else reads top-left, at every depth.
+- **A fill child in a hugging parent no longer collapses to 1px.** Figma's UI
+  disables "fill container" when the parent hugs that axis; the Plugin API
+  accepts it and resolves it to nothing. Combined with the 1px seed introduced
+  for dividers, an ordinary `<Frame w="fill" h={20}/>` inside a hug-width parent
+  came out **1px wide and invisible**, with no error anywhere. The 1px seed is
+  now reserved for dividers (what it was built for), and `render` /
+  `render-batch` print an explicit warning naming the child, the parent and the
+  axis. The warning is silent for the legitimate case — a divider filling the
+  height of a hug-height row, where the text siblings set the height.
+- **`minW` / `maxW` / `minH` / `maxH` actually work.** They were in the
+  known-prop list but were never emitted — a silent no-op, like `stretch` before
+  it. They now apply to root frames, nested frames and text, guarded per
+  property so an unsupported node type can't abort a render.
+
+### Fixed — eval
+
+- **`eval` accepts top-level `await`.** CDP runs eval code as a script, where a
+  bare `await` (and a bare `return`) is a syntax error, so the daemon wraps the
+  code in an async IIFE when needed. It decided that with three regexes that
+  only looked for `return` — so top-level `await` was never detected at all, and
+  `return` was missed unless it sat at the start or right after a `;`. Both
+  `let p = 1\nreturn p` and `if (!p) { return x }` came back as a raw
+  "Illegal return statement" from inside Figma. Hand-writing
+  `(async () => { … })()` was the documented workaround; it is no longer needed.
+  The wrapper now asks the JS engine which form compiles (parse-only, nothing is
+  executed) instead of guessing, and prefers the expression form so a bare
+  `figma.root.name` — or a bare `await figma.getNodeByIdAsync(id)` — still
+  evaluates to the value. Already-wrapped code is left byte-identical.
+
+### Changed
+
+- **The CLI loads only the command you invoked.** All 25 command modules were
+  imported on every run, and startup dominated: `eval` took ~149ms end to end,
+  of which ~108ms was process start plus module load and only ~40ms the actual
+  Figma roundtrip. Startup is now **108ms → 70ms**, so `eval` runs in ~102ms —
+  about a third off every command. Anything unrecognised (`--help`, an unknown
+  command, no arguments) still loads everything, so help output and "did you
+  mean" suggestions stay complete. A few commands forward into another module's
+  command (`import` hands DESIGN.md work to `tokens import-design-md`); those
+  dependencies are declared, and a test regenerates the map from the real
+  Commander tree and fails on a missing command, a wrong module or an undeclared
+  forward.
+- **`node` and `analyze` stopped shelling out.** `node tree/bindings/to-component/delete`,
+  `lint` and `analyze colors/typography/spacing/clusters` each carried TWO
+  implementations: a native one used in Safe Mode, and an `npx figma-use` spawn
+  used in Yolo Mode — so the mode with the faster CDP connection took the slower
+  path, after a `curl` subprocess spawned just to detect the mode. They all run
+  the native one now, in both modes: **714ms → 149ms** for `lint`, **684ms →
+  148ms** for `to-component` (which runs after every component you create).
+- `node tree` prints node ids and caps its output at 400 lines (`--limit`),
+  naming how many nodes it dropped. Trees of real files run to thousands of
+  lines and usually land in an AI's context.
+- `node bindings` reads ALL bindings of a property, not just the first. Figma
+  hands back an array for fills/strokes, and only `[0]` was read, so every
+  binding after the first was invisible. It also uses the async variable lookup
+  (the sync one is deprecated) and resolves each variable id once.
+- `node to-component` / `node delete` now name what they skipped and why, and
+  exit non-zero instead of reporting a silent success for ids that were never
+  there.
+- **One render path.** `render` no longer shells out to the `figma-use` binary
+  and no longer has a separate fast path; everything goes through `parseJSX`,
+  which gained the `-x` / `-y` / `--parent` placement options that previously
+  only the external renderer supported. One behaviour to reason about, one place
+  to fix, and no process spawn per render: **~2.5× faster** (527ms → 206ms per
+  frame, measured over the harness's 10 cases).
+
 ### New
 
 - **Browser Mode (`figma-cli connect --browser`).** A connection mode that never

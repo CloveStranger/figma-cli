@@ -5,35 +5,16 @@ import { writeFileSync, mkdirSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { program, checkConnection, fastEval } from '../lib/cli-core.js';
 import {
-  listPagesCode, walkerCode, variableCollectionsCode, variableChunkCode,
+  danglingAliasNames,
   generateDesignMd, generatePageStructureMd, estimateStructureTokens, ALL_SECTIONS,
 } from '../design-extract.js';
+import { runExtraction, ExtractionError } from '../lib/extract-run.js';
 
-const DEPTH_FLOOR = 3;
-// Variable values are fetched in bounded chunks so huge libraries (thousands
-// of variables) never land in one oversized eval. On payload/timeout the
-// chunk halves down to this floor before the rest of a collection is skipped.
-const VAR_CHUNK = 200;
-const VAR_CHUNK_FLOOR = 25;
 // Structure trees above this estimated token count get auto-split into
 // DESIGN-structure/ so the main DESIGN.md stays loadable in one AI context.
 const AUTO_SPLIT_TOKENS = 50_000;
 
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'page';
-
-/**
- * fastEval returns a string when the eval code uses JSON.stringify() (both
- * daemon and direct-connection paths pass the string value through), and an
- * object/primitive when the code returns a raw value (daemon deserialises the
- * HTTP body with response.json() which parses the outer envelope, leaving the
- * inner result as-is). Since all walkers in design-extract.js return
- * JSON.stringify(...), results will almost always be strings — but guard
- * against the object case so the command is robust to daemon changes.
- */
-function parseEvalResult(res) {
-  if (typeof res === 'string') return JSON.parse(res);
-  return res;
-}
 
 program
   .command('extract [output]')
@@ -43,6 +24,7 @@ program
   .option('--selection', 'only the currently selected nodes (overrides --pages)')
   .option('--split', 'additionally write full per-page trees to DESIGN-structure/')
   .option('--no-split', 'never auto-split, even for huge files (one big DESIGN.md)')
+  .option('--resolve-remote', 'also capture the library primitives this file aliases into, so `import` can rebuild the full alias chain instead of empty values')
   .action(async (output, options) => {
     await checkConnection();
     const outPath = resolve(output || 'DESIGN.md');
@@ -60,110 +42,18 @@ program
 
     const spinner = ora('Reading file info...').start();
     try {
-      let pages;
-      if (options.selection) {
-        // Wrap the selection in a synthetic single "page".
-        const sel = parseEvalResult(await fastEval(`(async () => {
-          const sel = figma.currentPage.selection;
-          return JSON.stringify({ ids: sel.map(n => n.id), pageId: figma.currentPage.id, pageName: figma.currentPage.name });
-        })()`));
-        if (!sel.ids.length) {
-          spinner.fail('Nothing selected in Figma.');
-          process.exit(1);
-        }
-        pages = [{ id: sel.pageId, name: sel.pageName, selectionIds: sel.ids }];
-      } else {
-        pages = parseEvalResult(await fastEval(listPagesCode()));
-        if (options.pages) {
-          const filters = options.pages.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-          pages = pages.filter(p => filters.some(f => p.name.toLowerCase().includes(f)));
-          if (!pages.length) {
-            spinner.fail(`No pages match "${options.pages}".`);
-            process.exit(1);
-          }
-        }
-      }
-
-      const fileName = parseEvalResult(await fastEval(
-        `(async () => JSON.stringify(figma.root.name))()`
-      ));
-
-      // Authoritative token layer: the file's real variable collections.
-      // Two-phase + chunked so it scales to large systems: list collections
-      // (tiny), then fetch each collection's values in bounded, retryable
-      // chunks. Best-effort — older Figma builds / files without variables
-      // yield []. droppedVars counts any chunk skipped after exhausting retries
-      // so the summary can tell "no variables" apart from "some unreadable".
-      let variables = [];
-      let droppedVars = 0;
-      const wantsVariables = !sections || sections.includes('variables');
-      if (wantsVariables) {
-        spinner.text = 'Reading variable collections…';
-        let cols = [];
-        try {
-          cols = parseEvalResult(await fastEval(variableCollectionsCode())) || [];
-        } catch (e) {
-          cols = [];
-        }
-        for (let ci = 0; ci < cols.length; ci++) {
-          const col = cols[ci];
-          const ids = col.variableIds || [];
-          const collected = [];
-          let chunk = VAR_CHUNK;
-          for (let i = 0; i < ids.length;) {
-            spinner.text = `Variables: ${col.name} (${i}/${ids.length})…`;
-            const slice = ids.slice(i, i + chunk);
-            try {
-              const got = parseEvalResult(await fastEval(variableChunkCode(slice, col.modes))) || [];
-              collected.push(...got);
-              i += chunk;
-            } catch (e) {
-              if (/payload|too large|timeout/i.test(e.message) && chunk > VAR_CHUNK_FLOOR) {
-                chunk = Math.floor(chunk / 2);
-                continue;
-              }
-              droppedVars += slice.length;
-              i += chunk; // skip this slice, keep going with the rest
-            }
-          }
-          variables.push({ id: col.id, name: col.name, modes: col.modes, variables: collected });
-        }
-      }
-
-      const results = [];
-      for (let i = 0; i < pages.length; i++) {
-        const page = pages[i];
-        spinner.text = `Page ${i + 1}/${pages.length}: ${page.name}…`;
-        let depth = 8;
-        let result = null;
-        while (depth >= DEPTH_FLOOR) {
-          try {
-            const code = page.selectionIds
-              ? walkerCode(page.id, { maxDepth: depth }).replace(
-                  'page.children.map',
-                  `page.children.filter(c => ${JSON.stringify(page.selectionIds)}.includes(c.id)).map`)
-              : walkerCode(page.id, { maxDepth: depth });
-            result = parseEvalResult(await fastEval(code));
-            if (depth < 8) result.reducedDepth = depth;
-            break;
-          } catch (e) {
-            // Payload-size / timeout errors → retry shallower. Anything else → skip page.
-            if (/payload|too large|timeout/i.test(e.message) && depth > DEPTH_FLOOR) { depth -= 2; continue; }
-            result = { id: page.id, name: page.name, nodeCount: 0, frames: [], error: e.message };
-            break;
-          }
-        }
-        if (!result) result = { id: page.id, name: page.name, nodeCount: 0, frames: [], error: `exceeded payload limit even at depth ${DEPTH_FLOOR}` };
-        results.push(result);
-      }
+      const { extraction, droppedVars, remoteStats } = await runExtraction({
+        evalFn: fastEval,
+        sections,
+        pages: options.pages,
+        selection: options.selection,
+        resolveRemote: options.resolveRemote,
+        onProgress: (t) => { spinner.text = t; },
+      });
+      const { variables } = extraction;
+      const results = extraction.pages;
 
       spinner.text = 'Generating DESIGN.md…';
-      const extraction = {
-        fileName,
-        date: new Date().toISOString().slice(0, 10),
-        pages: results,
-        variables,
-      };
 
       // Auto-split: when the structure trees alone would blow any AI context
       // window, move them to DESIGN-structure/ and keep the main file lean.
@@ -206,6 +96,21 @@ program
         const varCount = variables.reduce((a, c) => a + (c.variables?.length || 0), 0);
         console.log(chalk.gray(`  Captured ${varCount} variable(s) across ${variables.length} collection(s) — real token names + modes (see § Variables)`));
         if (droppedVars) console.log(chalk.yellow(`  ⚠ ${droppedVars} variable(s) skipped (chunk too large even at floor) — they're missing from § Variables`));
+        if (remoteStats && remoteStats.variables) {
+          console.log(chalk.gray(`  + ${remoteStats.variables} library primitive(s) from ${remoteStats.collections} enabled library collection(s) — alias chains stay intact on import`));
+          if (remoteStats.truncated) console.log(chalk.yellow('  ⚠ library capture hit its safety cap — some primitives are missing'));
+        }
+        // Any alias whose target is in no captured collection re-imports as an
+        // EMPTY variable (renders white). Cheap to detect here, expensive to
+        // debug later, so always say it.
+        const dangling = danglingAliasNames(variables);
+        if (dangling.length) {
+          console.log(chalk.yellow(`  ⚠ ${dangling.length} alias target(s) live in a library that is not part of this export`));
+          console.log(chalk.yellow(`    e.g. ${dangling.slice(0, 3).join(', ')}`));
+          console.log(options.resolveRemote
+            ? chalk.gray('    (the library is not enabled in this file — enable it in Figma, then re-extract)')
+            : chalk.gray('    Re-run with --resolve-remote to capture them; otherwise those tokens import with no value.'));
+        }
       }
       if (autoSplit) console.log(chalk.gray(`  Structure (~${Math.round(structTokens / 1000)}k tokens) auto-split into DESIGN-structure/ — main file stays AI-context-sized (--no-split to override)`));
       else if (doSplit) console.log(chalk.gray(`  + ${results.length} structure file(s) in DESIGN-structure/`));
@@ -218,7 +123,9 @@ program
       // that keep the event loop alive — exit explicitly once the work is done.
       process.exit(0);
     } catch (e) {
-      spinner.fail(`Extraction failed: ${e.message}`);
+      // Preconditions the user can fix ("Nothing selected", "No pages match")
+      // read better without the generic prefix.
+      spinner.fail(e instanceof ExtractionError ? e.message : `Extraction failed: ${e.message}`);
       process.exit(1);
     }
   });

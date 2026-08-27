@@ -39,6 +39,127 @@ const SEMANTIC_VAR_DEFAULTS = {
   ring: { r: 0.094, g: 0.094, b: 0.106 },
 };
 
+/**
+ * Default layout direction for a Frame that doesn't say `flex`.
+ *
+ * The root path defaulted to 'col' and the nested path to 'row', so the SAME
+ * `<Frame>` stacked its children vertically at the top level and laid them out
+ * horizontally one level down. Direction silently depending on nesting depth is
+ * the worst of the auto-layout footguns; both paths now read this constant.
+ * 'col' is the safe default: children stack instead of colliding sideways.
+ */
+export const DEFAULT_FLEX = 'col';
+
+const ALIGN_MAP = { start: 'MIN', center: 'CENTER', end: 'MAX', stretch: 'STRETCH' };
+const JUSTIFY_MAP = { start: 'MIN', center: 'CENTER', end: 'MAX', between: 'SPACE_BETWEEN' };
+
+/**
+ * Resolve auto-layout alignment for ONE frame, at ANY nesting depth.
+ *
+ * Depth must never change layout. The root and nested code paths used to
+ * default differently (root: MIN/MIN, nested: CENTER/CENTER via a flat
+ * `|| 'CENTER'`), so the same JSX laid out differently depending on how deep
+ * it sat — the single biggest source of "auto-layout is behaving weirdly".
+ *
+ * The one deliberate asymmetry is kept, and now applies everywhere:
+ * a ROW centers its cross axis, because vertically centering icon+text in a
+ * row is almost always what's wanted. Columns read top-left, like Figma.
+ *
+ * A frame with NO `flex` renders as VERTICAL (see layoutMode), so it must be
+ * treated as a column here too — treating it as a row is what made plain
+ * wrapper frames silently center their children.
+ */
+export function resolveAlign(flex, item = {}) {
+  const isRow = flex === 'row' || flex === 'horizontal';
+  const align = item.items || item.align || (isRow ? 'center' : 'start');
+  const justify = item.justify || 'start';
+  return {
+    alignVal: ALIGN_MAP[align] || (isRow ? 'CENTER' : 'MIN'),
+    justifyVal: JUSTIFY_MAP[justify] || ALIGN_MAP[justify] || 'MIN',
+  };
+}
+
+/**
+ * `minW`/`maxW`/`minH`/`maxH` were accepted as known props but never applied —
+ * a silent no-op, the same class of footgun `stretch` used to be. Figma exposes
+ * them as real constraints on auto-layout nodes, so emit them.
+ *
+ * Applied AFTER sizing so the clamp wins over FILL/HUG, guarded per property
+ * because Figma throws on unsupported node types instead of ignoring the set.
+ */
+/**
+ * Runtime prelude: report a child that FILLs an axis its parent HUGs.
+ *
+ * Figma's UI won't let you do this — "fill container" is disabled when the
+ * parent hugs — but the Plugin API accepts it and resolves it to nothing, so
+ * the element silently collapses and vanishes from the design. It is the most
+ * common auto-layout failure and it leaves no error behind, which is exactly
+ * why it kept getting rediscovered.
+ *
+ * Emitted once per render, used only by children that actually FILL.
+ */
+export const LAYOUT_WARN_PRELUDE = `
+        {
+          // Redefined on EVERY render, deliberately. Figma's globalThis persists
+          // between evals, so an "install once" guard would pin whichever
+          // version happened to run first in that Figma session — a stale
+          // definition surviving a code change is exactly the kind of ghost that
+          // wastes an afternoon.
+          globalThis.__layoutWarnings = [];
+          globalThis.__figHugPending = [];
+          // Only RECORD here. Children are created in order, so later siblings
+          // do not exist yet and judging now would flag the first child of every
+          // row. __figHugFlush() runs once the tree is complete.
+          globalThis.__figHugWarn = (child, axis) => {
+            globalThis.__figHugPending.push({ child, axis });
+          };
+          globalThis.__figHugFlush = () => {
+            for (const { child, axis } of globalThis.__figHugPending || []) {
+              try {
+                const p = child.parent;
+                if (!p || !p.layoutMode || p.layoutMode === 'NONE') continue;
+                // Which sizing mode governs an axis depends on the parent's
+                // direction: for a VERTICAL parent width is the counter axis,
+                // for HORIZONTAL it is the primary axis.
+                const isPrimary = (axis === 'H') === (p.layoutMode === 'HORIZONTAL');
+                const mode = isPrimary ? p.primaryAxisSizingMode : p.counterAxisSizingMode;
+                if (mode !== 'AUTO') continue;
+                // A hugging parent is only a problem when NOTHING establishes
+                // the axis. A divider filling the height of a hug-height row is
+                // correct: the text siblings set the height and the rule matches
+                // it. Warn only when every child defers, so the size is circular
+                // and Figma resolves it to the seed — a collapsed, invisible node.
+                const sizingOf = (n) => (axis === 'H' ? n.layoutSizingHorizontal : n.layoutSizingVertical);
+                const anchored = p.children.some((c) => c !== child && sizingOf(c) !== 'FILL');
+                if (anchored) continue;
+                globalThis.__layoutWarnings.push(
+                  '"' + child.name + '" fills ' + (axis === 'H' ? 'width' : 'height') +
+                  ', but its parent "' + p.name + '" hugs that axis and nothing else sets it'
+                );
+              } catch (e) {}
+            }
+            globalThis.__figHugPending = [];
+          };
+        }`;
+
+export function generateMinMaxCode(varName, item = {}) {
+  const num = (v) => {
+    if (v === undefined || v === null || v === '') return null;
+    const n = Number(String(v).replace(/px$/, ''));
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+  const pairs = [
+    ['minWidth', num(item.minW !== undefined ? item.minW : item.minWidth)],
+    ['maxWidth', num(item.maxW !== undefined ? item.maxW : item.maxWidth)],
+    ['minHeight', num(item.minH !== undefined ? item.minH : item.minHeight)],
+    ['maxHeight', num(item.maxH !== undefined ? item.maxH : item.maxHeight)],
+  ].filter(([, v]) => v !== null);
+  if (!pairs.length) return '';
+  return pairs
+    .map(([prop, v]) => `try { ${varName}.${prop} = ${v}; } catch (e) {}`)
+    .join('\n        ');
+}
+
 export class FigmaClient {
   constructor() {
     this.ws = null;
@@ -501,13 +622,11 @@ export class FigmaClient {
       const bg = props.bg || props.fill || null;
       const stroke = props.stroke || null;
       const rounded = props.rounded || props.radius || 0;
-      const flex = props.flex || 'col';
+      const flex = props.flex || DEFAULT_FLEX;
       const itemGap = props.gap || 0;
       const p = props.p || props.padding || 0;
       const px = props.px || p;
       const py = props.py || p;
-      const align = props.items || props.align || 'MIN';
-      const justify = props.justify || 'MIN';
       const wrap = props.wrap === true || props.wrap === 'true';
       const wrapGap = Number(props.wrapGap || props.rowGap || props.counterAxisSpacing || 0);
       const hug = props.hug || '';
@@ -522,10 +641,7 @@ export class FigmaClient {
       const hugHeight = hug === 'both' || hug === 'h' || hug === 'height';
       const clip = props.clip === 'true' || props.clip === true;
 
-      const alignMap = { start: 'MIN', center: 'CENTER', end: 'MAX', stretch: 'STRETCH' };
-      const justifyMap = { start: 'MIN', center: 'CENTER', end: 'MAX', between: 'SPACE_BETWEEN' };
-      const alignVal = alignMap[align] || 'MIN';
-      const justifyVal = justifyMap[justify] || alignMap[justify] || 'MIN';
+      const { alignVal, justifyVal } = resolveAlign(flex, props);
 
       const fillCode = this.generateFillCode(bg, `f${frameIdx}`);
       const strokeCode = stroke ? this.generateStrokeCode(stroke, `f${frameIdx}`, props.strokeWidth || 1, props.strokeAlign || null) : { code: '' };
@@ -555,6 +671,7 @@ export class FigmaClient {
         f${frameIdx}.primaryAxisSizingMode = '${flex === 'col' ? (hugHeight || !hasExplicitHeight ? 'AUTO' : 'FIXED') : (hugWidth || !hasExplicitWidth ? 'AUTO' : 'FIXED')}';
         f${frameIdx}.counterAxisSizingMode = '${flex === 'col' ? (hugWidth || !hasExplicitWidth ? 'AUTO' : 'FIXED') : (hugHeight || !hasExplicitHeight ? 'AUTO' : 'FIXED')}';
         ${wrap && flex === 'row' && wrapGap > 0 ? `f${frameIdx}.counterAxisSpacing = ${wrapGap};` : ''}`}
+        ${generateMinMaxCode(`f${frameIdx}`, props)}
         f${frameIdx}.clipsContent = ${clip};
         ${opacity !== null ? `f${frameIdx}.opacity = ${opacity};` : ''}
         ${visible === false ? `f${frameIdx}.visible = false;` : ''}
@@ -568,6 +685,7 @@ export class FigmaClient {
     return `
       (async function() {
         ${fontLoads}
+        ${LAYOUT_WARN_PRELUDE}
         ${varLoadCode}
 
         // Calculate start position
@@ -592,7 +710,12 @@ export class FigmaClient {
         const unresolved = globalThis.__unresolvedVars
           ? [...globalThis.__unresolvedVars].sort() : [];
         globalThis.__unresolvedVars = new Set();
-        return unresolved.length > 0 ? { frames: results, unresolved } : results;
+        if (globalThis.__figHugFlush) globalThis.__figHugFlush();
+        const layoutWarnings = globalThis.__layoutWarnings || [];
+        globalThis.__layoutWarnings = [];
+        return (unresolved.length > 0 || layoutWarnings.length > 0)
+          ? { frames: results, unresolved, layoutWarnings }
+          : results;
       })()
     `;
   }
@@ -600,7 +723,15 @@ export class FigmaClient {
   /**
    * Parse JSX-like syntax to Figma Plugin API code
    */
-  async parseJSX(jsx) {
+  /**
+   * @param {string} jsx
+   * @param {{x?:number,y?:number,parent?:string}} [opts] CLI-level placement.
+   *   These used to be reachable only through the external `figma-use` binary,
+   *   which is why plain `render` had to delegate to it (and inherited a second,
+   *   divergent auto-layout implementation). Supporting them here is what lets
+   *   every render go through ONE code path.
+   */
+  async parseJSX(jsx, opts = {}) {
     // Find opening Frame tag
     const openMatch = jsx.match(/<Frame\s+([^>]*)>/);
     if (!openMatch) {
@@ -631,7 +762,7 @@ export class FigmaClient {
     const iconSvgMap = await this.prefetchIconSvgs(childElements);
 
     // Generate code
-    return this.generateCode(props, childElements, iconSvgMap);
+    return this.generateCode(props, childElements, iconSvgMap, opts);
   }
 
   /**
@@ -912,7 +1043,7 @@ export class FigmaClient {
 
     // Parse Text elements, but skip those inside nested Frames/Slots
     // Use (?:\s+([^>]*?))? to allow Text with or without attributes
-    const textRegex = /<Text(?:\s+([^>]*?))?>([^<]*)<\/Text>/g;
+    const textRegex = /<Text(?:\s+([^>]*?))?>([\s\S]*?)<\/Text>/g;
     while ((match = textRegex.exec(childrenStr)) !== null) {
       const idx = match.index;
       // Check if this text is inside a nested frame
@@ -920,7 +1051,9 @@ export class FigmaClient {
       if (!insideFrame) {
         const textProps = this.parseProps(match[1] || '');
         textProps._type = 'text';
-        textProps.content = match[2];
+        const __parsed = this.parseTextRuns(match[2]);
+        textProps.content = __parsed.text;
+        textProps._runs = __parsed.runs;
         textProps._index = idx;
         children.push(textProps);
       }
@@ -1027,6 +1160,72 @@ export class FigmaClient {
     return base;
   }
 
+  /**
+   * Tokenize the inner content of a <Text> into styled runs.
+   * Recognizes inline tags: <b>/<strong>, <em>/<i>, <u>, and <span ...>.
+   * Plain text between tags inherits the base <Text> style (empty style {}).
+   * Returns { text, runs } with half-open UTF-16 offsets into text.
+   */
+  parseTextRuns(inner) {
+    inner = String(inner == null ? '' : inner).replace(/^\s+|\s+$/g, '');
+    const runs = [];
+    let text = '';
+    const collapse = (s) => s.replace(/\s+/g, ' ');
+    const stack = [];
+    const curStyle = () => Object.assign({}, ...stack);
+    const pushPlain = (raw) => {
+      if (!raw) return;
+      const decoded = this.decodeEntities(collapse(raw));
+      if (!decoded) return;
+      const start = text.length;
+      text += decoded;
+      runs.push({ start, end: text.length, style: curStyle() });
+    };
+    const tagRe = /<(\/?)(b|strong|em|i|u|span)((?:\s+[^>]*)?)>/gi;
+    let last = 0, m;
+    while ((m = tagRe.exec(inner)) !== null) {
+      pushPlain(inner.slice(last, m.index));
+      last = m.index + m[0].length;
+      const closing = m[1] === '/';
+      const tag = m[2].toLowerCase();
+      if (closing) { if (stack.length) stack.pop(); continue; }
+      let style;
+      if (tag === 'b' || tag === 'strong') style = { weight: 'bold' };
+      else if (tag === 'em' || tag === 'i') style = { italic: true };
+      else if (tag === 'u') style = { underline: true };
+      else {
+        const p = this.parseProps((m[3] || '').trim());
+        style = {};
+        if (p.weight !== undefined) style.weight = p.weight;
+        if (p.italic !== undefined) style.italic = p.italic;
+        if (p.color !== undefined) style.color = p.color;
+        if (p.size !== undefined) style.size = Number(p.size);
+        if (p.letterSpacing !== undefined) style.letterSpacing = p.letterSpacing;
+      }
+      stack.push(style);
+    }
+    pushPlain(inner.slice(last));
+    // Trim outer whitespace off the assembled text (padding can live inside a
+    // boundary tag, e.g. "<span> alert </span>"), re-mapping run offsets and
+    // dropping runs that fall entirely in the trimmed region.
+    const lead = (text.match(/^\s+/) || [''])[0].length;
+    const trail = (text.match(/\s+$/) || [''])[0].length;
+    if (lead || trail) {
+      const newLen = text.length - trail;
+      text = text.slice(lead, newLen);
+      const remapped = [];
+      for (const r of runs) {
+        const s = Math.max(r.start, lead) - lead;
+        const e = Math.min(r.end, newLen) - lead;
+        if (e > s) remapped.push({ start: s, end: e, style: r.style });
+      }
+      runs.length = 0;
+      runs.push(...remapped);
+    }
+    if (runs.length === 0) runs.push({ start: 0, end: 0, style: {} });
+    return { text, runs };
+  }
+
   collectFontsAndVarUsage(items) {
     const fontMap = new Map(); // 'family/style' -> { family, style }
     let usesVars = false;
@@ -1038,6 +1237,18 @@ export class FigmaClient {
           const style = this.weightToStyle(item.weight, item.italic);
           fontMap.set(family + '/' + style, { family, style });
           check(item.color || '#000000');
+          if (Array.isArray(item._runs)) {
+            item._runs.forEach(r => {
+              const st = r.style || {};
+              if (st.weight !== undefined || st.italic !== undefined) {
+                const rStyle = this.weightToStyle(
+                  st.weight !== undefined ? st.weight : item.weight,
+                  st.italic !== undefined ? st.italic : item.italic
+                );
+                fontMap.set(family + '/' + rStyle, { family, style: rStyle });
+              }
+            });
+          }
         } else if (item._type === 'frame' || item._type === 'slot') {
           check(item.bg || item.fill || null);
           if (item.stroke) check(item.stroke);
@@ -1105,6 +1316,7 @@ export class FigmaClient {
           const size = item.size || 14;
           const color = item.color || '#000000';
           const fillWidth = item.w === 'fill';
+          const numW = (item.w !== undefined && item.w !== 'fill' && item.w !== 'hug' && item.w !== 'auto' && !isNaN(Number(item.w))) ? Number(item.w) : null;
           const textFillCode = this.generateFillCode(color, `el${idx}`);
 
           // Typography props that used to be in the known-prop list but were
@@ -1124,10 +1336,39 @@ export class FigmaClient {
           const tTruncate = item.truncate === true || item.truncate === 'true';
           const tMaxLines = item.maxLines !== undefined ? parseInt(item.maxLines) : null;
 
+          const runStyleCode = (item._runs || [])
+            .filter(r => r.style && Object.keys(r.style).length)
+            .map(r => {
+              const st = r.style;
+              const parts = [];
+              if (st.weight !== undefined || st.italic !== undefined) {
+                const rStyle = this.weightToStyle(
+                  st.weight !== undefined ? st.weight : item.weight,
+                  st.italic !== undefined ? st.italic : item.italic
+                );
+                parts.push(`try { el${idx}.setRangeFontName(${r.start}, ${r.end}, __font(${JSON.stringify(family)}, ${JSON.stringify(rStyle)})); } catch(e) {}`);
+              }
+              if (st.size !== undefined && !isNaN(Number(st.size))) {
+                parts.push(`try { el${idx}.setRangeFontSize(${r.start}, ${r.end}, ${Number(st.size)}); } catch(e) {}`);
+              }
+              if (st.color && this.hexToRgb(st.color)) {
+                parts.push(`try { el${idx}.setRangeFills(${r.start}, ${r.end}, [{ type: 'SOLID', color: ${this.hexToRgbCode(st.color)} }]); } catch(e) {}`);
+              }
+              if (st.underline) {
+                parts.push(`try { el${idx}.setRangeTextDecoration(${r.start}, ${r.end}, 'UNDERLINE'); } catch(e) {}`);
+              }
+              if (st.letterSpacing !== undefined) {
+                parts.push(`try { el${idx}.setRangeLetterSpacing(${r.start}, ${r.end}, ${dimUnit(st.letterSpacing)}); } catch(e) {}`);
+              }
+              return parts.join('\n        ');
+            })
+            .filter(Boolean)
+            .join('\n        ');
+
           // Auto-FILL text in column layouts so Safe Mode wraps text correctly.
           const isCol = parentFlex === 'col' || parentFlex === 'column';
           const parentNone = parentFlex === 'none' || parentFlex === 'stack' || parentFlex === 'free';
-          const autoFill = isCol && !fillWidth;
+          const autoFill = isCol && !fillWidth && numW === null;
           return `
         __currentNode = 'Text: ${item.content.substring(0, 30).replace(/'/g, "\\'")}';
         const el${idx} = figma.createText();
@@ -1138,12 +1379,17 @@ export class FigmaClient {
         ${tAlign ? `el${idx}.textAlignHorizontal = '${tAlign}';` : ''}
         el${idx}.characters = ${JSON.stringify(item.content)};
         ${textFillCode.code}
+        ${runStyleCode ? runStyleCode : ''}
         ${parentVar}.appendChild(el${idx});
+        ${numW !== null ? `el${idx}.textAutoResize = 'HEIGHT';
+        try { el${idx}.layoutSizingHorizontal = 'FIXED'; } catch(e) {}
+        try { el${idx}.resize(${numW}, el${idx}.height); } catch(e) {}` : ''}
         ${fillWidth && !parentNone ? `el${idx}.layoutSizingHorizontal = 'FILL'; el${idx}.textAutoResize = 'HEIGHT';` : ''}
         ${autoFill ? `// Auto-FILL: text in col layout needs FILL for Safe Mode wrapping
         if (${parentVar}.layoutMode === 'VERTICAL' && (${parentVar}.counterAxisSizingMode === 'FIXED' || ${parentVar}.primaryAxisSizingMode === 'FIXED')) {
           try { el${idx}.layoutSizingHorizontal = 'FILL'; el${idx}.textAutoResize = 'HEIGHT'; } catch(e) {}
         }` : ''}
+        ${generateMinMaxCode(`el${idx}`, item)}
         ${tTruncate || tMaxLines !== null ? `try { el${idx}.textTruncation = 'ENDING'; } catch(e) {}` : ''}
         ${tMaxLines !== null ? `try { el${idx}.maxLines = ${tMaxLines}; } catch(e) {}` : ''}`;
         } else if (item._type === 'frame') {
@@ -1154,7 +1400,7 @@ export class FigmaClient {
           const fStrokeWidth = item.strokeWidth || 1;
           const fStrokeAlign = item.strokeAlign || null;
           const fRounded = item.rounded || item.radius || 0;
-          const fFlex = item.flex || 'row';
+          const fFlex = item.flex || DEFAULT_FLEX;
           const fGap = item.gap || 0;
           // Default padding is 0 (only set padding when explicitly specified)
           const fP = item.p !== undefined ? item.p : (item.padding !== undefined ? item.padding : null);
@@ -1171,12 +1417,8 @@ export class FigmaClient {
           // centering icon+text in a row/cell is almost always what's wanted.
           // Explicit justify=/items= always win. This fixes the recurring
           // "title/cell content is centered / avatars are staggered" papercut.
-          const isColFrame = fFlex === 'col' || fFlex === 'column';
-          // Read `items` too (not just `align`) — the root paths accept both,
-          // nested previously ignored `items` (it only worked by coincidence
-          // when the default matched).
-          const fAlign = item.items || item.align || (isColFrame ? 'start' : 'center');
-          const fJustify = item.justify || 'start';
+          // Resolved by the shared helper so a frame lays out identically
+          // whether it is the root or nested ten levels deep.
           // Clip defaults to false for nested frames (overflow="hidden" also sets clip)
           const fClip = item.clip === 'true' || item.clip === true || item.overflow === 'hidden';
 
@@ -1234,11 +1476,7 @@ export class FigmaClient {
           const fWidth = numericW !== undefined ? numericW : 100;
           const fHeight = numericH !== undefined ? numericH : 40;
 
-          // Map align/justify to Figma values
-          const alignMap = { start: 'MIN', center: 'CENTER', end: 'MAX', stretch: 'STRETCH' };
-          const justifyMap = { start: 'MIN', center: 'CENTER', end: 'MAX', between: 'SPACE_BETWEEN' };
-          const fAlignVal = alignMap[fAlign] || 'CENTER';
-          const fJustifyVal = justifyMap[fJustify] || alignMap[fJustify] || 'CENTER';
+          const { alignVal: fAlignVal, justifyVal: fJustifyVal } = resolveAlign(fFlex, item);
 
           const nestedChildren = item._children ? this.generateChildrenCode(item._children, `el${idx}`, fFlex, ctx) : '';
           const frameFillCode = fBg ? this.generateFillCode(fBg, `el${idx}`) : { code: `el${idx}.fills = [];`, usesVars: false };
@@ -1275,8 +1513,18 @@ export class FigmaClient {
           // 100px default) so the parent hugs to its REAL content before FILL is
           // applied. Otherwise a divider's 100px default determines the hug and
           // FILL can't shrink it back (the "zu hoch" footgun).
-          const resizeW = hasWidth ? fWidth : (wantFillH ? 1 : 100);
-          const resizeH = hasHeight ? fHeight : (wantFillV ? 1 : 100);
+          //
+          // That seed is for DIVIDERS specifically — a rule spanning its parent,
+          // whose own size must not influence the hug. Applying it to every FILL
+          // child was too broad: an ordinary `w="fill"` child in a parent that
+          // hugs width has nothing else establishing that axis, so the 1px seed
+          // became the answer and the child collapsed to 1px and disappeared.
+          // Ordinary fill children keep the normal seed; `__figHugWarn` below
+          // reports the hug/fill conflict either way.
+          const isDividerFillH = wantFillH && ((isStretch && crossIsH) || autoFillH);
+          const isDividerFillV = wantFillV && ((isStretch && crossIsV) || autoFillV);
+          const resizeW = hasWidth ? fWidth : (isDividerFillH ? 1 : 100);
+          const resizeH = hasHeight ? fHeight : (isDividerFillV ? 1 : 100);
 
           // flex="none" (aliases: stack/free) → no auto-layout. Children keep
           // their own x/y, so they OVERLAP (z-stack): spinners (ring+arc),
@@ -1309,6 +1557,9 @@ export class FigmaClient {
         ${parentVar}.appendChild(el${idx});
         ${parentIsNone ? '' : `el${idx}.layoutSizingHorizontal = '${hSizing}';
         el${idx}.layoutSizingVertical = '${vSizing}';`}
+        ${!parentIsNone && wantFillH ? `globalThis.__figHugWarn(el${idx}, 'H');` : ''}
+        ${!parentIsNone && wantFillV ? `globalThis.__figHugWarn(el${idx}, 'V');` : ''}
+        ${generateMinMaxCode(`el${idx}`, item)}
         ${pctW !== null || pctH !== null ? `try {
           const _pp = el${idx}.parent;
           if (_pp && 'width' in _pp) {
@@ -1568,7 +1819,7 @@ export class FigmaClient {
       }).join('\n');
   }
 
-  generateCode(props, children, iconSvgMap = {}) {
+  generateCode(props, children, iconSvgMap = {}, opts = {}) {
     const name = props.name || 'Frame';
     const rawWidth = props.w || props.width;
     const rawHeight = props.h || props.height;
@@ -1593,16 +1844,18 @@ export class FigmaClient {
     const strokeWidth = props.strokeWidth || 1;
     const strokeAlignProp = props.strokeAlign || null;
     const rounded = props.rounded || props.radius || 0;
-    const flex = props.flex || 'col';
+    const flex = props.flex || DEFAULT_FLEX;
     const gap = props.gap || 0;
     const p = props.p || props.padding || 0;
     const px = props.px || p;
     const py = props.py || p;
-    const align = props.items || props.align || 'MIN';
-    const justify = props.justify || 'MIN';
-    const useSmartPos = props.x === undefined;
-    const explicitX = props.x || 0;
-    const y = props.y || 0;
+    // CLI-supplied -x/-y win over JSX props; `--no-smart-position` reaches us
+    // as an explicit x so the frame lands exactly where the caller asked.
+    const cliX = opts.x !== undefined && opts.x !== null ? Number(opts.x) : undefined;
+    const cliY = opts.y !== undefined && opts.y !== null ? Number(opts.y) : undefined;
+    const useSmartPos = cliX === undefined && props.x === undefined;
+    const explicitX = cliX !== undefined ? cliX : (props.x || 0);
+    const y = cliY !== undefined ? cliY : (props.y || 0);
     // New: clip defaults to false (don't clip auto-layout overflow). overflow="hidden" also sets clip.
     const clip = props.clip === 'true' || props.clip === true || props.overflow === 'hidden';
     // Generic node-level visuals — apply on the root frame too (single-render path)
@@ -1634,11 +1887,7 @@ export class FigmaClient {
 
     const childCode = this.generateChildrenCode(children, 'frame', flex, { counter: { value: 0 }, prefix: '', iconSvgMap });
 
-    // Map align/justify to Figma values for root frame
-    const alignMap = { start: 'MIN', center: 'CENTER', end: 'MAX', stretch: 'STRETCH' };
-    const justifyMap = { start: 'MIN', center: 'CENTER', end: 'MAX', between: 'SPACE_BETWEEN' };
-    const alignVal = alignMap[align] || 'MIN';
-    const justifyVal = justifyMap[justify] || alignMap[justify] || 'MIN';
+    const { alignVal, justifyVal } = resolveAlign(flex, props);
 
     // Smart positioning code
     const smartPosCode = useSmartPos ? `
@@ -1750,6 +1999,7 @@ export class FigmaClient {
     return `
       (async function() {
         ${fontLoadCode}
+        ${LAYOUT_WARN_PRELUDE}
         ${varLoadCode}
         ${smartPosCode}
 
@@ -1780,6 +2030,7 @@ export class FigmaClient {
         ${fillWidth ? `frame.layoutSizingHorizontal = 'FILL';` : ''}
         ${fillHeight ? `frame.layoutSizingVertical = 'FILL';` : ''}
         ${wrap && flex === 'row' && wrapGap > 0 ? `frame.counterAxisSpacing = ${wrapGap};` : ''}`}
+        ${generateMinMaxCode('frame', props)}
         frame.clipsContent = ${clip};
         ${opacity !== null ? `frame.opacity = ${opacity};` : ''}
         ${visible === false ? `frame.visible = false;` : ''}
@@ -1787,13 +2038,24 @@ export class FigmaClient {
 
         ${childCode}
 
+        ${opts.parent ? `
+        // --parent: re-home the finished frame. Done AFTER the children exist
+        // so an auto-layout parent measures real content, not the seed size.
+        const __p = await figma.getNodeByIdAsync(${JSON.stringify(String(opts.parent))});
+        if (!__p) throw new Error('Parent not found: ' + ${JSON.stringify(String(opts.parent))});
+        if (!('appendChild' in __p)) throw new Error('Parent cannot contain children: ' + __p.type);
+        __p.appendChild(frame);` : ''}
+
         // Surface unresolved var: references like the batch path does, so a
         // themed render that fell back to grey is visible to the caller.
         const __unresolved = globalThis.__unresolvedVars
           ? [...globalThis.__unresolvedVars].sort() : [];
         if (globalThis.__unresolvedVars) globalThis.__unresolvedVars = new Set();
-        return __unresolved.length > 0
-          ? { id: frame.id, name: frame.name, unresolved: __unresolved }
+        if (globalThis.__figHugFlush) globalThis.__figHugFlush();
+        const __layoutWarnings = globalThis.__layoutWarnings || [];
+        globalThis.__layoutWarnings = [];
+        return (__unresolved.length > 0 || __layoutWarnings.length > 0)
+          ? { id: frame.id, name: frame.name, unresolved: __unresolved, layoutWarnings: __layoutWarnings }
           : { id: frame.id, name: frame.name };
         } catch(e) {
           frame.remove();
@@ -1801,6 +2063,36 @@ export class FigmaClient {
         }
       })()
     `;
+  }
+
+  /**
+   * Decode a curated set of HTML entities (numeric + named) in text content.
+   * Hand-rolled (no dependency). Unknown entities are left verbatim.
+   */
+  decodeEntities(str) {
+    if (typeof str !== 'string' || str.indexOf('&') === -1) return str;
+    const named = {
+      amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+      copy: '©', reg: '®', trade: '™', hellip: '…',
+      mdash: '—', ndash: '–', times: '×', divide: '÷',
+      rarr: '→', larr: '←', uarr: '↑', darr: '↓',
+      rsquo: '’', lsquo: '‘', ldquo: '“', rdquo: '”',
+      bull: '•', middot: '·', deg: '°', plusmn: '±',
+      ne: '≠', le: '≤', ge: '≥', approx: '≈',
+    };
+    return str.replace(/&(#[0-9]+|#x[0-9a-f]+|[a-z]+);/gi, (m, body) => {
+      if (body[0] === '#') {
+        const cp = (body[1] === 'x' || body[1] === 'X')
+          ? parseInt(body.slice(2), 16)
+          : parseInt(body.slice(1), 10);
+        if (Number.isFinite(cp) && cp >= 0 && cp <= 0x10FFFF) {
+          try { return String.fromCodePoint(cp); } catch (e) { return m; }
+        }
+        return m;
+      }
+      const key = body.toLowerCase();
+      return Object.prototype.hasOwnProperty.call(named, key) ? named[key] : m;
+    });
   }
 
   hexToRgb(hex) {
