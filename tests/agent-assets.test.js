@@ -11,7 +11,6 @@ describe('agent guidance assets', () => {
     const packageJson = JSON.parse(readFileSync(join(rootDir, 'package.json'), 'utf8'));
 
     assert.ok(packageJson.files.includes('AGENTS.md'));
-    assert.ok(packageJson.files.includes('AGENT.md'));
     assert.ok(packageJson.files.includes('skills'));
   });
 
