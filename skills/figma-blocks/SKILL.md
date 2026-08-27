@@ -1,6 +1,6 @@
 ---
 name: figma-blocks
-description: Use when creating prebuilt layouts such as dashboards or page blocks with fig/figma-ds-cli instead of manually assembling them
+description: Use when creating prebuilt layouts such as dashboards or page blocks with figma-ds-cli instead of manually assembling them
 ---
 
 # Figma Blocks
@@ -8,18 +8,6 @@ description: Use when creating prebuilt layouts such as dashboards or page block
 ## Overview
 
 Blocks are the default path for dashboards and prebuilt layouts. Do not rebuild those manually unless the user explicitly asks for custom construction.
-
-Interactive entrypoint:
-
-```bash
-fig connect
-```
-
-Command alias:
-
-```bash
-alias fig='figma-ds-cli'
-```
 
 ## When to Use
 
@@ -30,15 +18,15 @@ alias fig='figma-ds-cli'
 ## Commands
 
 ```bash
-fig blocks list
-fig blocks create dashboard-01
+figma-ds-cli blocks list
+figma-ds-cli blocks create dashboard-01
 ```
 
 ## Rules
 
 - Always use `blocks create` for dashboards and page layouts.
 - Do not reimplement `dashboard-01` with `render` or `eval` if the existing block matches the request.
-- After block creation, verify visually with `fig verify`.
+- After block creation, verify the returned node with `figma-ds-cli verify "NODE_ID" --measure`.
 
 ## Included Example
 

@@ -1,6 +1,6 @@
 ---
 name: figma-slot
-description: Use when creating, listing, converting, resetting, or populating Figma native slots in components or instances with fig/figma-ds-cli
+description: Use when creating, listing, converting, resetting, or populating Figma native slots in components or instances with figma-ds-cli
 ---
 
 # Figma Slot
@@ -8,18 +8,6 @@ description: Use when creating, listing, converting, resetting, or populating Fi
 ## Overview
 
 Slots create flexible content regions inside components. Use slot commands instead of trying to force slot behavior through plain `eval`.
-
-Interactive entrypoint:
-
-```bash
-fig connect
-```
-
-Command alias:
-
-```bash
-alias fig='figma-ds-cli'
-```
 
 ## When to Use
 
@@ -31,16 +19,16 @@ alias fig='figma-ds-cli'
 ## Commands
 
 ```bash
-fig slot create "Content" --flex col --gap 8 --padding 16
-fig slot list
-fig slot list "1:234"
-fig slot preferred "Slot#1:2" "comp-id-1" "comp-id-2"
-fig slot reset
-fig slot reset "slot-node-id"
-fig slot convert --name "Actions"
-fig slot add "slot-id" --component "comp-id"
-fig slot add "slot-id" --frame
-fig slot add "slot-id" --text "Hello"
+figma-ds-cli slot create "Content" --flex col --gap 8 --padding 16
+figma-ds-cli slot list
+figma-ds-cli slot list "1:234"
+figma-ds-cli slot preferred "Slot#1:2" "comp-id-1" "comp-id-2"
+figma-ds-cli slot reset
+figma-ds-cli slot reset "slot-node-id"
+figma-ds-cli slot convert --name "Actions"
+figma-ds-cli slot add "slot-id" --component "comp-id"
+figma-ds-cli slot add "slot-id" --frame
+figma-ds-cli slot add "slot-id" --text "Hello"
 ```
 
 ## JSX
@@ -53,4 +41,4 @@ When the parent is a component, this creates a real slot. Otherwise it falls bac
 
 ## Critical Rule
 
-Do not rely on `isSlot = true` in raw Figma API code. It does not create a real slot here. Use `fig slot convert` or the supported slot commands.
+Do not rely on `isSlot = true` in raw Figma API code. It does not create a real slot here. Use `figma-ds-cli slot convert` or the supported slot commands.

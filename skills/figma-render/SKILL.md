@@ -1,6 +1,6 @@
 ---
 name: figma-render
-description: Use when creating primitives, JSX layouts, webpages, or custom components with fig/figma-ds-cli render, create, set, sizing, padding, gap, arrange, or eval workflows
+description: Use when creating primitives, JSX layouts, webpages, rich text, or custom components with figma-ds-cli render, render-batch, create, set, and layout commands
 ---
 
 # Figma Render
@@ -8,18 +8,6 @@ description: Use when creating primitives, JSX layouts, webpages, or custom comp
 ## Overview
 
 This skill covers direct creation workflows: primitives, JSX render, batch render, layout updates, and custom component construction.
-
-Interactive entrypoint:
-
-```bash
-fig connect
-```
-
-Command alias:
-
-```bash
-alias fig='figma-ds-cli'
-```
 
 ## When to Use
 
@@ -31,36 +19,37 @@ alias fig='figma-ds-cli'
 ## Core Commands
 
 ```bash
-fig create rect "Card" -w 320 -h 200 --fill "#fff" --radius 12
-fig create autolayout "Card" -d col -g 16 -p 24 --fill "#fff"
-fig create icon lucide:star -s 24 -c "#f59e0b"
-fig render '<Frame name="Card" w={320} h={180} bg="#fff" rounded={16}><Text>Title</Text></Frame>'
-fig render '<Frame name="Card">...</Frame>' --as-component --verify
-fig render '<Frame bg="var:card">...</Frame>' --collection figma --verify
-fig render-batch '["<Frame ... />","<Frame ... />"]' -d row -g 40 --verify
-fig render-batch '["<Frame ... />","<Frame ... />"]' --as-component --collection figma
-fig spec "Button"
-fig instantiate "Button"
+figma-ds-cli create rect "Card" -w 320 -h 200 --fill "#fff" --radius 12
+figma-ds-cli create autolayout "Card" -d col -g 16 -p 24 --fill "#fff"
+figma-ds-cli create icon lucide:star -s 24 -c "#f59e0b"
+figma-ds-cli render '<Frame name="Card" w={320} h={180} bg="#fff" rounded={16}><Text>Title</Text></Frame>'
+figma-ds-cli render '<Frame name="Card">...</Frame>' --as-component --verify
+figma-ds-cli render '<Frame bg="var:card">...</Frame>' --collection figma --verify
+figma-ds-cli render-batch '["<Frame ... />","<Frame ... />"]' -d row -g 40 --verify
+figma-ds-cli render-batch '["<Frame ... />","<Frame ... />"]' --as-component --collection figma
+figma-ds-cli spec "Button"
+figma-ds-cli instantiate "Button"
 ```
 
 ## Layout Updates
 
 ```bash
-fig set fill "#3b82f6"
-fig set radius 12
-fig set size 320 200
-fig set pos 100 100
-fig set autolayout row -g 8 -p 16
-fig sizing hug
-fig sizing fill
-fig padding 16
-fig gap 16
-fig arrange -g 100
+figma-ds-cli set fill "#3b82f6"
+figma-ds-cli set radius 12
+figma-ds-cli set size 320 200
+figma-ds-cli set pos 100 100
+figma-ds-cli set autolayout row -g 8 -p 16
+figma-ds-cli sizing hug
+figma-ds-cli sizing fill
+figma-ds-cli padding 16
+figma-ds-cli gap 16
+figma-ds-cli unstack
+figma-ds-cli arrange -g 100
 ```
 
 ## High-Value Options
 
-- Use `--verify` to replace a separate `fig verify` roundtrip.
+- Use `--verify` to replace a separate `figma-ds-cli verify` roundtrip.
 - Use `--as-component` when the rendered frame should immediately become a component.
 - Use `--collection <name>` when the user names a variable collection or brand system.
 - Use `--keep-wrapper` only when the outer wrapper is intentional; otherwise the renderer may split layout-only wrappers into independent canvas items.
@@ -69,9 +58,9 @@ fig arrange -g 100
 
 If a DESIGN.md exists and the user asks for a component that may already be in that system, do not default to rendering.
 
-1. Run `fig spec "Name"` to find the authoritative spec and reuse handle.
-2. If the user wants to use or add the existing component, run `fig instantiate "Name"`.
-3. If the user explicitly wants a rebuilt version, render it and then run `fig spec "Name" --check "NODE_ID"`.
+1. Run `figma-ds-cli spec "Name"` to find the authoritative spec and reuse handle.
+2. If the user wants to use or add the existing component, run `figma-ds-cli instantiate "Name"`.
+3. If the user explicitly wants a rebuilt version, render it and then run `figma-ds-cli spec "Name" --check "NODE_ID"`.
 
 ## Safe Mode Rule
 
@@ -81,14 +70,15 @@ If a DESIGN.md exists and the user asks for a component that may already be in t
 
 - Check current page positions before creating large new groups to avoid overlap.
 - Never delete existing nodes unless the user asked for it.
-- After creating anything visual, run `fig verify --measure` or pass `--verify` to render.
+- After creating anything visual, run `figma-ds-cli verify "NODE_ID" --measure` or pass `--verify` to render.
 - Prefer `render` / `render-batch` for visual node creation. Use `eval` only for native Plugin API operations that JSX or CLI commands cannot express.
 - When the user asks for N cards/buttons/items, create N independent top-level nodes with `render-batch`, not one wrapper frame containing N repeated children.
+- Prefer `unstack` to fix accidental top-level overlaps. `arrange` is destructive and should be used only when the user intends to reorder every top-level frame.
 
-## Auto-Layout Rules For Text Components
+## Text and Auto-Layout
 
-1. Parent frame should use a fixed width with auto height.
-2. Child content frames should use `layoutSizingHorizontal = 'FILL'` after `appendChild`.
-3. Text nodes should also use `layoutSizingHorizontal = 'FILL'` after `appendChild`.
-4. In Safe Mode, load fonts first in `eval`.
-5. In JSX, give the parent and every wrapping text node `w="fill"` when text must wrap.
+- Use numeric width for deterministic wrapping, including inside row layouts: `<Text w={480}>...</Text>`.
+- Use `w="fill"` when text should consume a constrained auto-layout parent; ensure the relevant parent and intermediate content frames also establish fill-compatible width.
+- Inline runs support `<b>` / `<strong>`, `<em>` / `<i>`, `<u>`, and `<span weight= italic= color= size= letterSpacing=>`. Inline `color` accepts hex values.
+- Numeric and common named HTML entities are decoded. Formatting whitespace inside `<Text>` collapses and outer whitespace is trimmed.
+- If the runtime reports a fill child inside a parent that hugs the same axis with no sizing sibling, fix the circular layout instead of silencing the warning.

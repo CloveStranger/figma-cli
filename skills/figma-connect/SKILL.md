@@ -1,6 +1,6 @@
 ---
 name: figma-connect
-description: Use when connecting fig/figma-ds-cli to Figma Desktop, choosing between Yolo and Safe mode, or handling mode-specific setup constraints
+description: Use when connecting figma-ds-cli to Figma, choosing Yolo, Browser, or Safe mode, selecting among open files, or handling mode-specific setup constraints
 ---
 
 # Figma Connect
@@ -9,40 +9,42 @@ description: Use when connecting fig/figma-ds-cli to Figma Desktop, choosing bet
 
 Connect first, then choose the execution mode that matches the environment.
 
-Start by connecting to Figma Desktop:
-
-```bash
-fig connect
-```
-
-Use `fig connect --safe` when the whole session should stay in Safe Mode.
-
-Command alias:
-
-```bash
-alias fig='figma-ds-cli'
-```
-
 ## When to Use
 
 - User says "connect to figma"
-- User asks about Yolo Mode vs Safe Mode
+- User asks about Yolo, Browser, or Safe Mode
+- Multiple Figma files are open and commands must target a specific file
 - A workflow depends on plugin startup or Figma patching behavior
 
 ## Commands
 
 ```bash
-fig connect
-fig connect --safe
+figma-ds-cli connect
+figma-ds-cli connect --browser
+figma-ds-cli connect --safe
+figma-ds-cli status
+figma-ds-cli diagnose
 ```
 
 ## Guidance
 
 - Prefer `connect` for Yolo Mode. It patches Figma once, then connects directly.
-- Use `connect --safe` when patching is not allowed or the user wants plugin-only access.
+- Use `connect --browser` when the session should avoid modifying Figma Desktop while retaining the direct local workflow.
+- Use `connect --safe` when the user wants the official development-plugin path.
 - In Safe Mode, the user must start the FigCli plugin each session.
 - On macOS 13+, Yolo patching needs System Settings -> Privacy & Security -> App Management for the terminal app. Full Disk Access alone is not enough.
-- If App Management cannot be granted, use `connect --safe`.
+- If App Management cannot be granted, choose Browser or Safe Mode based on whether a browser-driven session or plugin session is desired.
+
+## File Targeting
+
+When more than one Figma file is open, pin commands to the intended file instead of relying on whichever file is active:
+
+```bash
+FIGMA_FILE="Design System" figma-ds-cli canvas info
+FIGMA_FILE="Design System" figma-ds-cli render '<Frame name="Card" />' --verify
+```
+
+Confirm the target with a read-only command before mutating the canvas.
 
 ## Safe Mode Constraints
 
