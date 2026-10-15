@@ -620,6 +620,19 @@ program
 
     const config = loadConfig();
 
+    // A figma-cli update also updates the agent rules: refresh AGENTS.md /
+    // .cursor rules in this project when they carry an older figma-cli block,
+    // and write AGENTS.md into a project folder that has none yet.
+    try {
+      const { ensureRules } = await import('../lib/agent-rules.js');
+      for (const r of ensureRules(process.cwd())) {
+        const rel = r.path.replace(process.cwd() + '/', '');
+        console.log(chalk.gray(r.status === 'written'
+          ? '  ✓ wrote ' + rel + ' so Claude Code and Cursor know how to use figma-cli'
+          : '  ✓ updated agent rules: ' + rel));
+      }
+    } catch {}
+
     // Browser Mode: CDP to a normal browser — the Figma app is never modified.
     if (options.browser) {
       await connectBrowser(config);

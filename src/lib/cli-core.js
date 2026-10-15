@@ -244,6 +244,29 @@ function getTokenStatus() {
 let _daemonHealthCache = { time: 0, value: null };
 const DAEMON_HEALTH_TTL_MS = 2000;
 function invalidateDaemonHealthCache() { _daemonHealthCache = { time: 0, value: null }; }
+let _daemonHealthBody = null;
+
+// true when version a is older than b (plain x.y.z)
+function versionOlder(a, b) {
+  const p = v => String(v || '0').split('-')[0].split('.').map(n => parseInt(n, 10) || 0);
+  const x = p(a), y = p(b);
+  for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); }
+  return false;
+}
+
+/**
+ * True when the running daemon runs OLDER figma-cli code than this CLI (after
+ * npm update). render-batch and eval run INSIDE the daemon, so a stale one
+ * silently serves old behaviour. A daemon too old to report its version counts
+ * as older. Only older, never merely different: with two installs of different
+ * versions (global and project-local) "restart on any mismatch" made them
+ * restart each other on every command; this way the newer one wins and stays.
+ */
+function daemonCodeMismatch() {
+  const h = _daemonHealthBody;
+  if (!h || h.status === undefined) return false;
+  return !h.version || versionOlder(h.version, pkg.version);
+}
 
 // Check if daemon is running (returns object with details, or false)
 function isDaemonRunning(returnDetails = false, force = false) {
@@ -254,12 +277,15 @@ function isDaemonRunning(returnDetails = false, force = false) {
   try {
     const token = getDaemonToken();
     const tokenHeader = token ? ` -H "X-Daemon-Token: ${token}"` : '';
-    const response = execSync(`curl -s -o ${nullDevice} -w "%{http_code}"${tokenHeader} http://localhost:${DAEMON_PORT}/health`, {
+    // one spawn returns both the body (version, bound file) and the status code
+    const response = execSync(`curl -s -w "\\n%{http_code}"${tokenHeader} http://localhost:${DAEMON_PORT}/health`, {
       encoding: 'utf8',
       stdio: 'pipe',
       timeout: 1000
     });
-    const statusCode = response.trim();
+    const lines = response.trim().split('\n');
+    const statusCode = lines.pop().trim();
+    try { _daemonHealthBody = JSON.parse(lines.join('\n')); } catch { _daemonHealthBody = null; }
 
     if (returnDetails) {
       return {
@@ -400,8 +426,9 @@ function daemonPinMismatch() {
 }
 
 async function ensureDaemonRunning(maxWaitMs = 5000) {
-  const mismatched = isDaemonRunning() && daemonPinMismatch();
-  if (isDaemonRunning() && !mismatched) return true;
+  const running = isDaemonRunning(false, true);
+  const mismatched = running && (daemonPinMismatch() || daemonCodeMismatch());
+  if (running && !mismatched) return true;
   if (mismatched) {
     // Rebind: the daemon holds ONE CDP connection, fixed at startup.
     stopDaemon();
@@ -974,6 +1001,7 @@ async function isInSafeMode() {
 }
 
 export {
+  versionOlder,
   CONFIG_DIR,
   CONFIG_FILE,
   DAEMON_PID_FILE,

@@ -7,6 +7,22 @@
 
 import WebSocket from 'ws';
 import { getCdpPort } from './figma-patch.js';
+import { HELPERS_SOURCE, RESET_NOTES } from './lib/figma-helpers.js';
+
+// Temporary wrapper for a root <Instance>: rendered like a frame, then the
+// instance takes its place on the canvas and the wrapper is removed.
+const UNWRAP_NAME = '__figma_cli_unwrap__';
+const UNWRAP_ROOT = (v) => `(() => {
+          if (${v}.name !== ${JSON.stringify(UNWRAP_NAME)} || ${v}.children.length !== 1) return ${v};
+          const k = ${v}.children[0], par = ${v}.parent;
+          par.insertChild(par.children.indexOf(${v}), k);
+          k.x = ${v}.x; k.y = ${v}.y; ${v}.remove();
+          return k;
+        })()`;
+
+// True once the Plugin API is usable. `figma` alone is not enough: while a file
+// loads the global exists but `figma.root` does not yet.
+export const FIGMA_READY_EXPR = 'typeof figma === "object" && figma !== null && !!figma.root';
 
 /**
  * Visible fallback colors for shadcn semantic token names (Zinc light theme).
@@ -240,50 +256,33 @@ export class FigmaClient {
 
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(page.webSocketDebuggerUrl);
-      const executionContexts = [];
+      // Live set of execution contexts. Figma replaces them while a file is
+      // still loading, so the one found at connect time can disappear.
+      this.contexts = new Map();
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error('Could not find Figma execution context. Make sure a design file is open.'));
+      }, timeoutMs);
 
       this.ws.on('open', async () => {
         try {
           // Enable Runtime to discover execution contexts (needed for Figma v39+)
           await this.send('Runtime.enable');
-
-          // Give time for context events to arrive
-          await new Promise(r => setTimeout(r, 500));
-
-          // First try default context (works on older Figma versions)
-          const defaultCheck = await this.send('Runtime.evaluate', {
-            expression: 'typeof figma !== "undefined"',
-            returnByValue: true
-          });
-
-          if (defaultCheck.result?.result?.value === true) {
-            // figma is in default context (older Figma)
-            this.executionContextId = null;
-            resolve(this);
-            return;
-          }
-
-          // Figma v39+: search all execution contexts for figma
-          for (const ctx of executionContexts) {
-            try {
-              const check = await this.send('Runtime.evaluate', {
-                expression: 'typeof figma !== "undefined"',
-                contextId: ctx.id,
-                returnByValue: true
-              });
-
-              if (check.result?.result?.value === true) {
-                this.executionContextId = ctx.id;
-                resolve(this);
-                return;
-              }
-            } catch {
-              // Context may have been destroyed, skip
-            }
-          }
-
-          reject(new Error('Could not find Figma execution context. Make sure a design file is open.'));
+          // Right after Figma starts the file is still loading: wait until
+          // `figma.root` exists instead of failing or binding to a context
+          // that is about to be replaced.
+          const found = await this.waitForFigma(timeoutMs);
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          if (found) resolve(this);
+          else reject(new Error('Could not find Figma execution context. Make sure a design file is open.'));
         } catch (err) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
           reject(err);
         }
       });
@@ -291,9 +290,12 @@ export class FigmaClient {
       this.ws.on('message', (data) => {
         const msg = JSON.parse(data);
 
-        // Collect execution contexts as they're created
         if (msg.method === 'Runtime.executionContextCreated') {
-          executionContexts.push(msg.params.context);
+          this.contexts.set(msg.params.context.id, msg.params.context);
+        } else if (msg.method === 'Runtime.executionContextDestroyed') {
+          this.contexts.delete(msg.params.executionContextId);
+        } else if (msg.method === 'Runtime.executionContextsCleared') {
+          this.contexts.clear();
         }
 
         if (msg.id && this.callbacks.has(msg.id)) {
@@ -302,10 +304,46 @@ export class FigmaClient {
         }
       });
 
-      this.ws.on('error', reject);
-
-      setTimeout(() => reject(new Error('Connection timeout')), timeoutMs);
+      this.ws.on('error', (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(err);
+      });
     });
+  }
+
+  /**
+   * Find the execution context where the Plugin API is ready. Sets
+   * executionContextId (null = default context on older Figma).
+   * @returns {Promise<boolean>}
+   */
+  async findFigmaContext() {
+    const ready = { expression: FIGMA_READY_EXPR, returnByValue: true };
+    const inDefault = await this.send('Runtime.evaluate', ready);
+    if (inDefault.result?.result?.value === true) {
+      this.executionContextId = null;
+      return true;
+    }
+    for (const id of [...(this.contexts?.keys() || [])].reverse()) {
+      const check = await this.send('Runtime.evaluate', { ...ready, contextId: id });
+      if (check.result?.result?.value === true) {
+        this.executionContextId = id;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Poll until the Plugin API is ready or the deadline passes. */
+  async waitForFigma(timeoutMs = 15000) {
+    const deadline = Date.now() + timeoutMs;
+    while (this.ws && this.ws.readyState === 1) {
+      if (await this.findFigmaContext()) return true;
+      if (Date.now() >= deadline) return false;
+      await new Promise(r => setTimeout(r, 250));
+    }
+    return false;
   }
 
   send(method, params = {}) {
@@ -335,7 +373,21 @@ export class FigmaClient {
       params.contextId = this.executionContextId;
     }
 
-    const result = await this.send('Runtime.evaluate', params);
+    let result = await this.send('Runtime.evaluate', params);
+
+    // The bound context went away (file reloaded, tab restored after a Figma
+    // start). Re-running is safe: without the Plugin API the code could not
+    // have touched the document.
+    if (result.result?.exceptionDetails || result.error) {
+      const ready = await this.send('Runtime.evaluate', { expression: FIGMA_READY_EXPR, returnByValue: true, ...(this.executionContextId ? { contextId: this.executionContextId } : {}) });
+      if (ready.result?.result?.value !== true && await this.waitForFigma()) {
+        if (this.executionContextId) params.contextId = this.executionContextId;
+        else delete params.contextId;
+        result = await this.send('Runtime.evaluate', params);
+      }
+    }
+
+    if (result.error) throw new Error(result.error.message || 'Evaluation error');
 
     if (result.result?.exceptionDetails) {
       const error = result.result.exceptionDetails;
@@ -455,7 +507,8 @@ export class FigmaClient {
     const vertical = options.vertical || false;
 
     // Parse each JSX to get props and children
-    const parsed = jsxArray.map(jsx => {
+    const parsed = jsxArray.map(raw => {
+      const jsx = this.normalizeRoot(raw);
       const openMatch = jsx.match(/<Frame\s+([^>]*)>/);
       if (!openMatch) throw new Error('Invalid JSX: must start with <Frame>');
       const propsStr = openMatch[1];
@@ -469,6 +522,7 @@ export class FigmaClient {
     // Pre-fetch any icon SVGs used in any frame (shared child generator
     // renders real Iconify SVGs, falling back to placeholders offline)
     const iconSvgMap = await this.prefetchIconSvgs(parsed.flatMap(p => p.children));
+    await this.prefetchImages(parsed.flatMap(p => [p.props, ...p.children]));
 
     // Collect all fonts needed ({ family, style } pairs, deduped)
     const allFontMap = new Map();
@@ -627,6 +681,10 @@ export class FigmaClient {
       const p = props.p || props.padding || 0;
       const px = props.px || p;
       const py = props.py || p;
+      // pt/pr/pb/pl override one side, same as on nested frames. They used to
+      // be dropped on the root, so agents had to patch padding with eval.
+      const side = (v, d) => v !== undefined ? Number(v) : d;
+      const pt = side(props.pt, py), pb = side(props.pb, py), pl = side(props.pl, px), pr = side(props.pr, px);
       const wrap = props.wrap === true || props.wrap === 'true';
       const wrapGap = Number(props.wrapGap || props.rowGap || props.counterAxisSpacing || 0);
       const hug = props.hug || '';
@@ -648,7 +706,7 @@ export class FigmaClient {
       const effectsCode = this.generateEffectsCode(props, `f${frameIdx}`);
       const imageCode = props.image ? this.generateImageFillCode(props.image, `f${frameIdx}`, props.imageScale) : '';
 
-      const childCode = this.generateChildrenCode(children, `f${frameIdx}`, flex, { counter: { value: 0 }, prefix: `${frameIdx}_`, iconSvgMap });
+      const childCode = this.generateChildrenCode(children, `f${frameIdx}`, flex, { counter: { value: 0 }, prefix: `${frameIdx}_`, iconSvgMap }, props.items || props.align || null);
 
       return `
         const f${frameIdx} = figma.createFrame();
@@ -662,10 +720,14 @@ export class FigmaClient {
         ${effectsCode}
         ${imageCode}
         f${frameIdx}.layoutMode = '${flex === 'none' || flex === 'stack' || flex === 'free' ? 'NONE' : (flex === 'row' ? 'HORIZONTAL' : 'VERTICAL')}';
+        // Figma switches 'include strokes in layout' on when auto-layout is set by code; the editor keeps it off. Match the editor so fill children span the full width.
+        try { f${frameIdx}.strokesIncludedInLayout = false; } catch (e) {}
         ${flex === 'none' || flex === 'stack' || flex === 'free' ? '' : `${wrap && flex === 'row' ? `f${frameIdx}.layoutWrap = 'WRAP';` : ''}
         f${frameIdx}.itemSpacing = ${itemGap};
-        f${frameIdx}.paddingTop = f${frameIdx}.paddingBottom = ${py};
-        f${frameIdx}.paddingLeft = f${frameIdx}.paddingRight = ${px};
+        f${frameIdx}.paddingTop = ${pt};
+        f${frameIdx}.paddingBottom = ${pb};
+        f${frameIdx}.paddingLeft = ${pl};
+        f${frameIdx}.paddingRight = ${pr};
         f${frameIdx}.primaryAxisAlignItems = '${justifyVal}';
         f${frameIdx}.counterAxisAlignItems = '${alignVal}';
         f${frameIdx}.primaryAxisSizingMode = '${flex === 'col' ? (hugHeight || !hasExplicitHeight ? 'AUTO' : 'FIXED') : (hugWidth || !hasExplicitWidth ? 'AUTO' : 'FIXED')}';
@@ -684,6 +746,8 @@ export class FigmaClient {
 
     return `
       (async function() {
+        ${HELPERS_SOURCE}
+        ${RESET_NOTES}
         ${fontLoads}
         ${LAYOUT_WARN_PRELUDE}
         ${varLoadCode}
@@ -713,8 +777,18 @@ export class FigmaClient {
         if (globalThis.__figHugFlush) globalThis.__figHugFlush();
         const layoutWarnings = globalThis.__layoutWarnings || [];
         globalThis.__layoutWarnings = [];
-        return (unresolved.length > 0 || layoutWarnings.length > 0)
-          ? { frames: results, unresolved, layoutWarnings }
+        const notes = globalThis.__figNotes ? [...globalThis.__figNotes] : [];
+        for (const r of results) {
+          const f = await figma.getNodeByIdAsync(r.id);
+          if (!f) continue;
+          const k = ${UNWRAP_ROOT('f')};
+          if (k !== f) { r.id = k.id; r.name = k.name; r.width = k.width; r.height = k.height; }
+        }
+        for (const r of results) {
+          try { const n = await figma.getNodeByIdAsync(r.id); if (n) r.summary = await globalThis.__figHelpers.describe(n, 2, 12); } catch (e) {}
+        }
+        return (unresolved.length > 0 || layoutWarnings.length > 0 || notes.length > 0)
+          ? { frames: results, unresolved, layoutWarnings, notes }
           : results;
       })()
     `;
@@ -731,7 +805,47 @@ export class FigmaClient {
    *   divergent auto-layout implementation). Supporting them here is what lets
    *   every render go through ONE code path.
    */
+  /**
+   * A lone <Rectangle ... /> or <Rect ... /> is a common first attempt at "a
+   * box with an image". A Frame does everything a rectangle does, so accept it
+   * as the root instead of failing with "must start with <Frame>".
+   */
+  normalizeRoot(jsx) {
+    const t = String(jsx).trim();
+    const m = t.match(/^<(Rectangle|Rect)\b([\s\S]*?)\/>$/);
+    if (m) return `<Frame${m[2]}></Frame>`;
+    // A lone <Instance .../> ("place three cards side by side") is built inside
+    // a temporary hugging frame that is dissolved again, see UNWRAP_ROOT.
+    if (/^<Instance\b[\s\S]*\/>$/.test(t)) return `<Frame name="${UNWRAP_NAME}" flex="row" hug="both">${t}</Frame>`;
+    return jsx;
+  }
+
+  /**
+   * Download every image="https://..." / <Image src> in the tree on the CLI side
+   * and hand Figma the bytes. figma.createImageAsync(url) runs under the network
+   * rules of whatever plugin context the code lands in (an open plugin's
+   * allowedDomains), so it fails for most URLs; createImage(bytes) never does.
+   */
+  async prefetchImages(nodes) {
+    const urls = new Set();
+    const walk = (n) => {
+      if (!n) return;
+      for (const u of [n.image, n._type === 'image' ? n.src : null]) if (typeof u === 'string' && /^https?:\/\//.test(u)) urls.add(u);
+      (n._children || []).forEach(walk);
+    };
+    nodes.forEach(walk);
+    this._imageData = this._imageData || {};
+    await Promise.all([...urls].map(async (u) => {
+      if (this._imageData[u]) return;
+      try {
+        const res = await fetch(u, { signal: AbortSignal.timeout(15000) });
+        if (res.ok) this._imageData[u] = Buffer.from(await res.arrayBuffer()).toString('base64');
+      } catch (e) { /* falls back to createImageAsync inside Figma */ }
+    }));
+  }
+
   async parseJSX(jsx, opts = {}) {
+    jsx = this.normalizeRoot(jsx);
     // Find opening Frame tag
     const openMatch = jsx.match(/<Frame\s+([^>]*)>/);
     if (!openMatch) {
@@ -758,8 +872,9 @@ export class FigmaClient {
       console.warn('[render] Supported elements: <Frame>, <Text>, <Rectangle>, <Rect>, <Image>, <Icon>');
     }
 
-    // Pre-fetch any icon SVGs before code generation
+    // Pre-fetch any icon SVGs and images before code generation
     const iconSvgMap = await this.prefetchIconSvgs(childElements);
+    await this.prefetchImages([props, ...childElements]);
 
     // Generate code
     return this.generateCode(props, childElements, iconSvgMap, opts);
@@ -826,16 +941,52 @@ export class FigmaClient {
     const iconNames = this.collectIconNames(children);
     if (iconNames.size === 0) return {};
 
+    // Icons are cached on disk: a flaky network used to turn them into grey
+    // placeholder squares, and an agent only noticed on the screenshot.
+    const { mkdirSync, readFileSync: readF, writeFileSync: writeF, existsSync: exists } = await import('fs');
+    const { join: pjoin } = await import('path');
+    const { homedir } = await import('os');
+    const cacheDir = pjoin(homedir(), '.figma-ds-cli', 'icons');
     const svgMap = {};
-    const fetches = [...iconNames].map(async (iconName) => {
-      try {
-        const [prefix, name] = iconName.split(':');
-        const response = await fetch(`https://api.iconify.design/${prefix}/${name}.svg?width=24&height=24`);
-        if (response.ok) {
-          svgMap[iconName] = await response.text();
-        }
-      } catch (e) {
-        // Silently fall back to placeholder
+    const fileOf = (prefix, name) => pjoin(cacheDir, `${prefix}__${name}.svg`.replace(/[^a-z0-9_.-]/gi, '_'));
+    const save = (iconName, svg) => { svgMap[iconName] = svg; const [pre, nm] = iconName.split(':'); try { mkdirSync(cacheDir, { recursive: true }); writeF(fileOf(pre, nm), svg); } catch (e) {} };
+    // 1. disk cache
+    for (const iconName of iconNames) {
+      const [prefix, name] = iconName.split(':');
+      try { const f = fileOf(prefix, name); if (exists(f)) svgMap[iconName] = readF(f, 'utf8'); } catch (e) {}
+    }
+    // 2. one request per icon set for everything still missing (Iconify's JSON
+    //    API), instead of one request per icon that can each fail on a bad network
+    const byPrefix = {};
+    for (const iconName of iconNames) if (!svgMap[iconName]) { const [prefix, name] = iconName.split(':'); (byPrefix[prefix] = byPrefix[prefix] || []).push(name); }
+    await Promise.all(Object.entries(byPrefix).map(async ([prefix, names]) => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await fetch(`https://api.iconify.design/${prefix}.json?icons=${names.map(encodeURIComponent).join(',')}`, { signal: AbortSignal.timeout(8000) });
+          if (!res.ok) continue;
+          const set = await res.json();
+          for (const name of names) {
+            const real = (set.aliases && set.aliases[name] && set.aliases[name].parent) || name;
+            const icon = set.icons && set.icons[real];
+            if (!icon) continue;
+            const w = icon.width || set.width || 24, h = icon.height || set.height || 24;
+            save(`${prefix}:${name}`, `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 ${w} ${h}">${icon.body}</svg>`);
+          }
+          return;
+        } catch (e) { /* retry once */ }
+      }
+    }));
+    // 3. per-icon endpoint for anything the bulk call did not return
+    const fetches = [...iconNames].filter(n => !svgMap[n]).map(async (iconName) => {
+      const [prefix, name] = iconName.split(':');
+      for (let attempt = 0; attempt < 2 && !svgMap[iconName]; attempt++) {
+        try {
+          const response = await fetch(`https://api.iconify.design/${prefix}/${name}.svg?width=24&height=24`, { signal: AbortSignal.timeout(8000) });
+          if (response.ok) {
+            const svg = await response.text();
+            if (svg.startsWith('<svg')) save(iconName, svg);
+          } else if (response.status === 404) break;
+        } catch (e) { /* retry once, then placeholder with a note */ }
       }
     });
     await Promise.all(fetches);
@@ -854,7 +1005,7 @@ export class FigmaClient {
       'justify', 'items', 'align', 'grow', 'stretch', 'hug',
       'w', 'h', 'width', 'height', 'minW', 'maxW', 'minH', 'maxH',
       'position', 'x', 'y', 'top', 'right', 'bottom', 'left', 'centerOffsetX', 'centerOffsetY'];
-    const paint = ['bg', 'fill', 'stroke', 'strokeWidth', 'strokeAlign', 'opacity', 'blendMode',
+    const paint = ['effectStyle', 'bg', 'fill', 'stroke', 'strokeWidth', 'strokeAlign', 'opacity', 'blendMode',
       'image', 'imageScale', 'visible', 'locked', 'clip', 'overflow', 'rotate'];
     const corners = ['rounded', 'radius', 'roundedTL', 'roundedTR', 'roundedBL', 'roundedBR', 'cornerSmoothing'];
     const effects = ['shadow', 'innerShadow', 'blur', 'bgBlur',
@@ -865,17 +1016,17 @@ export class FigmaClient {
 
     const known = {
       Frame: [...layout, ...paint, ...corners, ...effects],
-      Text: ['name', 'size', 'weight', 'color', 'font', 'italic', 'align', 'w', 'h', 'width', 'height',
+      Text: ['name', 'textStyle', 'decoration', 'textDecoration', 'rotate', 'size', 'weight', 'color', 'font', 'italic', 'align', 'w', 'h', 'width', 'height',
         'grow', 'opacity', 'x', 'y', 'position', 'lineHeight', 'letterSpacing', 'truncate', 'maxLines'],
       Icon: ['name', 'size', 's', 'color', 'c', 'x', 'y', 'position'],
-      Rect: ['name', 'w', 'h', 'width', 'height', 'bg', 'fill', 'rounded', 'radius', 'opacity', 'x', 'y', 'position'],
+      Rect: ['name', 'image', 'imageScale', 'w', 'h', 'width', 'height', 'bg', 'fill', 'rounded', 'radius', 'opacity', 'x', 'y', 'position'],
       Rectangle: null, // alias of Rect, filled below
       Ellipse: ['name', 'w', 'h', 'width', 'height', 'bg', 'fill', 'stroke', 'strokeWidth', 'strokeAlign',
         'arc', 'arcStart', 'innerRadius', 'opacity', 'x', 'y', 'position'],
       Circle: null,    // alias of Ellipse, filled below
-      Image: ['name', 'w', 'h', 'width', 'height', 'bg', 'fill', 'rounded', 'radius', 'opacity', 'x', 'y', 'position'],
+      Image: ['name', 'src', 'image', 'fit', 'imageScale', 'w', 'h', 'width', 'height', 'bg', 'fill', 'rounded', 'radius', 'opacity', 'x', 'y', 'position'],
       Slot: ['name', 'flex', 'gap', 'p', 'px', 'py', 'padding', 'w', 'h', 'width', 'height', 'bg', 'fill'],
-      Instance: ['name', 'component', 'id', 'w', 'h', 'width', 'height'],
+      Instance: ['name', 'component', 'id', 'variant', 'text', 'tint', 'w', 'h', 'width', 'height', 'x', 'y', 'position', 'opacity', 'rotate'],
     };
     known.Rectangle = known.Rect;
     known.Circle = known.Ellipse;
@@ -936,13 +1087,14 @@ export class FigmaClient {
   parseProps(propsStr) {
     const props = {};
 
-    // Match name="value" or name={value}
-    const regex = /(\w+)=(?:"([^"]*)"|{([^}]*)})/g;
+    // Match name="value", name={value} and a bare number (x=48), which agents
+    // write often enough that silently dropping it cost them a fix-up round.
+    const regex = /(\w+)=(?:"([^"]*)"|{([^}]*)}|(-?\d+(?:\.\d+)?)(?=[\s/>]|$))/g;
     let match;
 
     while ((match = regex.exec(propsStr)) !== null) {
       const key = match[1];
-      const value = match[2] !== undefined ? match[2] : match[3];
+      const value = match[2] !== undefined ? match[2] : match[3] !== undefined ? match[3] : match[4];
       props[key] = value;
     }
 
@@ -1026,7 +1178,7 @@ export class FigmaClient {
     }
 
     // Parse self-closing Slot elements
-    const slotSelfCloseRegex = /<Slot(?:\s+([^/]*?))?\s*\/>/g;
+    const slotSelfCloseRegex = /<Slot(?:\s+((?:[^/"]|"[^"]*")*?))?\s*\/>/g;
     while ((match = slotSelfCloseRegex.exec(childrenStr)) !== null) {
       const idx = match.index;
       const insideFrame = frameRanges.some(r => idx >= r.start && idx < r.end);
@@ -1061,7 +1213,7 @@ export class FigmaClient {
 
     // Parse Rectangle elements (self-closing)
     // Use (?:\s+([^/]*?))? to allow Rect with or without attributes
-    const rectRegex = /<(?:Rectangle|Rect)(?:\s+([^/]*?))?\s*\/>/g;
+    const rectRegex = /<(?:Rectangle|Rect)(?:\s+((?:[^/"]|"[^"]*")*?))?\s*\/>/g;
     while ((match = rectRegex.exec(childrenStr)) !== null) {
       const idx = match.index;
       const insideFrame = frameRanges.some(r => idx >= r.start && idx < r.end);
@@ -1075,7 +1227,7 @@ export class FigmaClient {
 
     // Parse Ellipse / Circle elements (self-closing). Supports rings, spinners,
     // donut/pie via arc (sweep°), arcStart (start°, 0=3 o'clock) and innerRadius.
-    const ellipseRegex = /<(?:Ellipse|Circle)(?:\s+([^/]*?))?\s*\/>/g;
+    const ellipseRegex = /<(?:Ellipse|Circle)(?:\s+((?:[^/"]|"[^"]*")*?))?\s*\/>/g;
     while ((match = ellipseRegex.exec(childrenStr)) !== null) {
       const idx = match.index;
       const insideFrame = frameRanges.some(r => idx >= r.start && idx < r.end);
@@ -1088,7 +1240,8 @@ export class FigmaClient {
     }
 
     // Parse Image elements (self-closing) - creates placeholder rectangle
-    const imageRegex = /<Image\s+([^/]*)\s*\/>/g;
+    // quoted values may contain '/' (src="https://..."), so skip over them
+    const imageRegex = /<Image\s+((?:[^/"]|"[^"]*")*?)\s*\/>/g;
     while ((match = imageRegex.exec(childrenStr)) !== null) {
       const idx = match.index;
       const insideFrame = frameRanges.some(r => idx >= r.start && idx < r.end);
@@ -1114,7 +1267,8 @@ export class FigmaClient {
     }
 
     // Parse Instance elements (self-closing) - creates component instance
-    const instanceRegex = /<Instance\s+([^/]*)\s*\/>/g;
+    // quoted values may contain '/' ("ActionList.Item/Default"), so skip over them
+    const instanceRegex = /<Instance\s+((?:[^/"]|"[^"]*")*)\s*\/>/g;
     while ((match = instanceRegex.exec(childrenStr)) !== null) {
       const idx = match.index;
       const insideFrame = frameRanges.some(r => idx >= r.start && idx < r.end);
@@ -1307,7 +1461,7 @@ export class FigmaClient {
    * ctx: { counter: {value}, prefix: string (el-name prefix, e.g. '0_'),
    *        iconSvgMap: {name: svg} }
    */
-  generateChildrenCode(items, parentVar, parentFlex, ctx) {
+  generateChildrenCode(items, parentVar, parentFlex, ctx, parentItems = null) {
       return items.map(item => {
         const idx = ctx.prefix + (ctx.counter.value++);
         if (item._type === 'text') {
@@ -1330,7 +1484,10 @@ export class FigmaClient {
             return `{ value: ${Number(v)}, unit: 'PIXELS' }`;
           };
           const alignMapT = { left: 'LEFT', center: 'CENTER', right: 'RIGHT', justify: 'JUSTIFIED', start: 'LEFT', end: 'RIGHT' };
-          const tAlign = item.align ? alignMapT[String(item.align).toLowerCase()] : null;
+          // A text in a column whose items are centered reads centered: without
+          // this a wrapping headline sits flush left inside a centered stack.
+          const inheritsCenter = !item.align && (parentFlex === 'col' || parentFlex === 'column') && parentItems === 'center';
+          const tAlign = item.align ? alignMapT[String(item.align).toLowerCase()] : (inheritsCenter ? 'CENTER' : null);
           const tLineHeight = item.lineHeight !== undefined ? dimUnit(item.lineHeight) : null;
           const tLetterSpacing = item.letterSpacing !== undefined ? dimUnit(item.letterSpacing) : null;
           const tTruncate = item.truncate === true || item.truncate === 'true';
@@ -1378,6 +1535,17 @@ export class FigmaClient {
         ${tLetterSpacing ? `try { el${idx}.letterSpacing = ${tLetterSpacing}; } catch(e) {}` : ''}
         ${tAlign ? `el${idx}.textAlignHorizontal = '${tAlign}';` : ''}
         el${idx}.characters = ${JSON.stringify(item.content)};
+        ${item.textStyle ? `// Named text style. When its font is not installed Figma refuses the
+        // style outright, so keep the style's metrics on the fallback font and say so.
+        try {
+          const __ts = await globalThis.__figHelpers.style(${JSON.stringify(String(item.textStyle))});
+          try { await figma.loadFontAsync(__ts.fontName); await el${idx}.setTextStyleIdAsync(__ts.id); }
+          catch (e) {
+            el${idx}.fontSize = __ts.fontSize;
+            try { el${idx}.lineHeight = __ts.lineHeight; el${idx}.letterSpacing = __ts.letterSpacing; } catch (e2) {}
+            globalThis.__figHelpers.note('text style "' + __ts.name + '" needs font "' + __ts.fontName.family + ' ' + __ts.fontName.style + '" which is not installed; applied its size and spacing with the fallback font instead');
+          }
+        } catch (e) { globalThis.__figHelpers.note(e.message); }` : ''}
         ${textFillCode.code}
         ${runStyleCode ? runStyleCode : ''}
         ${parentVar}.appendChild(el${idx});
@@ -1391,7 +1559,10 @@ export class FigmaClient {
         }` : ''}
         ${generateMinMaxCode(`el${idx}`, item)}
         ${tTruncate || tMaxLines !== null ? `try { el${idx}.textTruncation = 'ENDING'; } catch(e) {}` : ''}
-        ${tMaxLines !== null ? `try { el${idx}.maxLines = ${tMaxLines}; } catch(e) {}` : ''}`;
+        ${tMaxLines !== null ? `try { el${idx}.maxLines = ${tMaxLines}; } catch(e) {}` : ''}
+        ${item.name ? `el${idx}.name = ${JSON.stringify(String(item.name))};` : ''}
+        ${(() => { const d = { strikethrough: 'STRIKETHROUGH', 'line-through': 'STRIKETHROUGH', strike: 'STRIKETHROUGH', underline: 'UNDERLINE' }[String(item.decoration || item.textDecoration || '').toLowerCase()]; return d ? `try { el${idx}.textDecoration = '${d}'; } catch(e) {}` : ''; })()}
+        ${this.genCommonNodeProps({ ...item, opacity: item.opacity, rotate: item.rotate, x: item.x, y: item.y, position: item.position }, `el${idx}`, parentNone)}`;
         } else if (item._type === 'frame') {
           // Nested frame (button, etc.)
           const fName = item.name || 'Nested Frame';
@@ -1478,7 +1649,7 @@ export class FigmaClient {
 
           const { alignVal: fAlignVal, justifyVal: fJustifyVal } = resolveAlign(fFlex, item);
 
-          const nestedChildren = item._children ? this.generateChildrenCode(item._children, `el${idx}`, fFlex, ctx) : '';
+          const nestedChildren = item._children ? this.generateChildrenCode(item._children, `el${idx}`, fFlex, ctx, item.items || item.align || null) : '';
           const frameFillCode = fBg ? this.generateFillCode(fBg, `el${idx}`) : { code: `el${idx}.fills = [];`, usesVars: false };
           const frameStrokeCode = fStroke ? this.generateStrokeCode(fStroke, `el${idx}`, fStrokeWidth, fStrokeAlign) : { code: '' };
           const frameEffectsCode = this.generateEffectsCode(item, `el${idx}`);
@@ -1537,6 +1708,8 @@ export class FigmaClient {
         const el${idx} = figma.createFrame();
         el${idx}.name = ${JSON.stringify(fName)};
         el${idx}.layoutMode = '${isNone ? 'NONE' : (fFlex === 'row' ? 'HORIZONTAL' : 'VERTICAL')}';
+        // Figma switches 'include strokes in layout' on when auto-layout is set by code; the editor keeps it off. Match the editor so fill children span the full width.
+        try { el${idx}.strokesIncludedInLayout = false; } catch (e) {}
         ${!isNone && fWrap && fFlex === 'row' ? `el${idx}.layoutWrap = 'WRAP';` : ''}
         ${hasWidth || hasHeight || (!isNone && (wantFillH || wantFillV)) ? `el${idx}.resize(${resizeW}, ${resizeH});` : ''}
         ${isNone ? '' : `el${idx}.itemSpacing = ${fGap};
@@ -1548,6 +1721,7 @@ export class FigmaClient {
         ${frameFillCode.code}
         ${frameStrokeCode.code}
         ${frameEffectsCode}
+        ${item.image ? this.generateImageFillCode(item.image, `el${idx}`, item.imageScale) : ''}
         ${isNone ? '' : `el${idx}.primaryAxisAlignItems = '${fJustifyVal}';
         el${idx}.counterAxisAlignItems = '${fAlignVal}';`}
         el${idx}.clipsContent = ${fClip};
@@ -1695,6 +1869,7 @@ export class FigmaClient {
         el${idx}.resize(${iWidth}, ${iHeight});
         el${idx}.cornerRadius = ${iRounded};
         ${imgFillCode.code}
+        ${item.src || item.image ? this.generateImageFillCode(item.src || item.image, `el${idx}`, item.imageScale || item.fit) : ''}
         ${parentVar}.appendChild(el${idx});
         ${this.genCommonNodeProps(item, `el${idx}`, parentFlex === 'none' || parentFlex === 'stack' || parentFlex === 'free')}`;
         } else if (item._type === 'icon') {
@@ -1749,31 +1924,27 @@ export class FigmaClient {
         el${idx}.resize(${icSize}, ${icSize});
         el${idx}.cornerRadius = ${Math.round(icSize / 4)};
         ${iconFillCode.code}
-        ${parentVar}.appendChild(el${idx});`;
+        ${parentVar}.appendChild(el${idx});
+        globalThis.__figHelpers.note(${JSON.stringify(`icon "${icName}" could not be loaded (unknown name or no network), drew a placeholder square`)});`;
           }
         } else if (item._type === 'instance') {
-          // Component instance
-          const compId = item.component || item.id;
-          const compName = item.name;
-
-          if (compId) {
-            // Create instance by component ID
-            return `
-        const comp${idx} = figma.getNodeById(${JSON.stringify(compId)});
-        if (comp${idx} && comp${idx}.type === 'COMPONENT') {
-          const el${idx} = comp${idx}.createInstance();
-          ${parentVar}.appendChild(el${idx});
-        }`;
-          } else if (compName) {
-            // Find component by name and create instance
-            return `
-        const comp${idx} = figma.currentPage.findOne(n => n.type === 'COMPONENT' && n.name === ${JSON.stringify(compName)});
-        if (comp${idx}) {
-          const el${idx} = comp${idx}.createInstance();
-          ${parentVar}.appendChild(el${idx});
-        }`;
-          }
-          return '';
+          // Component instance by set/component name (whole document) or id.
+          // variant="size=large, variant=danger" picks the variant, text="..."
+          // relabels the first text layer. Missing fonts are swapped to Inter
+          // (otherwise Figma refuses both the relabel and the appendChild).
+          const ref = item.component || item.id || item.name;
+          if (!ref) return '';
+          const fillW = item.w === 'fill';
+          const numW = item.w !== undefined && !isNaN(Number(item.w)) ? Number(item.w) : null;
+          return `
+        __currentNode = ${JSON.stringify('Instance: ' + ref)};
+        const el${idx} = await globalThis.__figHelpers.instance(${JSON.stringify(String(ref))}, ${JSON.stringify(item.variant || '')}, {
+          ${item.text !== undefined ? `text: ${JSON.stringify(String(item.text))},` : ''} parent: ${parentVar} });
+        ${item.component && item.name ? `el${idx}.name = ${JSON.stringify(String(item.name))};` : ''}
+        ${fillW ? `try { el${idx}.layoutSizingHorizontal = 'FILL'; } catch (e) {}` : ''}
+        ${numW !== null ? `try { el${idx}.resize(${numW}, el${idx}.height); } catch (e) {}` : ''}
+        ${item.tint ? this.generateTintCode(item.tint, `el${idx}`) : ''}
+        ${this.genCommonNodeProps(item, `el${idx}`, parentFlex === 'none' || parentFlex === 'stack' || parentFlex === 'free')}`;
         } else if (item._type === 'slot') {
           // Slot element - creates slot inside component
           // NOTE: createSlot only works when parent is a component
@@ -1804,6 +1975,8 @@ export class FigmaClient {
           ${parentVar}.appendChild(slot${idx});
         }
         slot${idx}.layoutMode = '${slotFlex === 'row' ? 'HORIZONTAL' : 'VERTICAL'}';
+        // Figma switches 'include strokes in layout' on when auto-layout is set by code; the editor keeps it off. Match the editor so fill children span the full width.
+        try { slot${idx}.strokesIncludedInLayout = false; } catch (e) {}
         slot${idx}.itemSpacing = ${slotGap};
         slot${idx}.paddingTop = ${slotPy};
         slot${idx}.paddingBottom = ${slotPy};
@@ -1849,6 +2022,8 @@ export class FigmaClient {
     const p = props.p || props.padding || 0;
     const px = props.px || p;
     const py = props.py || p;
+    const side = (v, d) => v !== undefined ? Number(v) : d;
+    const pt = side(props.pt, py), pb = side(props.pb, py), pl = side(props.pl, px), pr = side(props.pr, px);
     // CLI-supplied -x/-y win over JSX props; `--no-smart-position` reaches us
     // as an explicit x so the frame lands exactly where the caller asked.
     const cliX = opts.x !== undefined && opts.x !== null ? Number(opts.x) : undefined;
@@ -1885,7 +2060,7 @@ export class FigmaClient {
     const collected = this.collectFontsAndVarUsage(children);
     if (collected.usesVars) usesVars = true;
 
-    const childCode = this.generateChildrenCode(children, 'frame', flex, { counter: { value: 0 }, prefix: '', iconSvgMap });
+    const childCode = this.generateChildrenCode(children, 'frame', flex, { counter: { value: 0 }, prefix: '', iconSvgMap }, props.items || props.align || null);
 
     const { alignVal, justifyVal } = resolveAlign(flex, props);
 
@@ -1998,6 +2173,8 @@ export class FigmaClient {
 
     return `
       (async function() {
+        ${HELPERS_SOURCE}
+        ${RESET_NOTES}
         ${fontLoadCode}
         ${LAYOUT_WARN_PRELUDE}
         ${varLoadCode}
@@ -2017,12 +2194,14 @@ export class FigmaClient {
         ${rootEffectsCode}
         ${rootImageCode}
         frame.layoutMode = '${flex === 'none' || flex === 'stack' || flex === 'free' ? 'NONE' : (flex === 'row' ? 'HORIZONTAL' : 'VERTICAL')}';
+        // Figma switches 'include strokes in layout' on when auto-layout is set by code; the editor keeps it off. Match the editor so fill children span the full width.
+        try { frame.strokesIncludedInLayout = false; } catch (e) {}
         ${flex === 'none' || flex === 'stack' || flex === 'free' ? '' : `${wrap && flex === 'row' ? `frame.layoutWrap = 'WRAP';` : ''}
         frame.itemSpacing = ${gap};
-        frame.paddingTop = ${py};
-        frame.paddingBottom = ${py};
-        frame.paddingLeft = ${px};
-        frame.paddingRight = ${px};
+        frame.paddingTop = ${pt};
+        frame.paddingBottom = ${pb};
+        frame.paddingLeft = ${pl};
+        frame.paddingRight = ${pr};
         frame.primaryAxisAlignItems = '${justifyVal}';
         frame.counterAxisAlignItems = '${alignVal}';
         frame.primaryAxisSizingMode = '${flex === 'col' ? (hugHeight || fillHeight || !hasExplicitHeight ? 'AUTO' : 'FIXED') : (hugWidth || fillWidth || !hasExplicitWidth ? 'AUTO' : 'FIXED')}';
@@ -2054,9 +2233,14 @@ export class FigmaClient {
         if (globalThis.__figHugFlush) globalThis.__figHugFlush();
         const __layoutWarnings = globalThis.__layoutWarnings || [];
         globalThis.__layoutWarnings = [];
-        return (__unresolved.length > 0 || __layoutWarnings.length > 0)
-          ? { id: frame.id, name: frame.name, unresolved: __unresolved, layoutWarnings: __layoutWarnings }
-          : { id: frame.id, name: frame.name };
+        const __notes = globalThis.__figNotes ? [...globalThis.__figNotes] : [];
+        const __root = ${UNWRAP_ROOT('frame')};
+        // What was built, so the caller does not need a second call to check it.
+        let __summary = null;
+        try { __summary = await globalThis.__figHelpers.describe(__root); } catch (e) {}
+        return (__unresolved.length > 0 || __layoutWarnings.length > 0 || __notes.length > 0)
+          ? { id: __root.id, name: __root.name, unresolved: __unresolved, layoutWarnings: __layoutWarnings, notes: __notes, summary: __summary }
+          : { id: __root.id, name: __root.name, summary: __summary };
         } catch(e) {
           frame.remove();
           throw new Error('[Node: ' + __currentNode + '] ' + e.message);
@@ -2190,8 +2374,12 @@ export class FigmaClient {
     const finalMode = validModes.includes(mode) ? mode : 'FILL';
     const safeName = elementVar.replace(/[^a-zA-Z0-9]/g, '');
     // Image REPLACES fills (not appends) — user expects bg-style behavior
+    const bytes = this._imageData && this._imageData[url];
+    const create = bytes
+      ? `figma.createImage(figma.base64Decode(${JSON.stringify(bytes)}))`
+      : `await figma.createImageAsync(${JSON.stringify(url)})`;
     return `
-      const __img${safeName} = await figma.createImageAsync(${JSON.stringify(url)});
+      const __img${safeName} = ${create};
       ${elementVar}.fills = [{ type: 'IMAGE', imageHash: __img${safeName}.hash, scaleMode: '${finalMode}' }];`;
   }
 
@@ -2385,6 +2573,16 @@ export class FigmaClient {
   }
 
   generateEffectsCode(props, elementVar) {
+    const raw = this.generateRawEffectsCode(props, elementVar);
+    if (!props.effectStyle) return raw;
+    // A named effect style from the file (e.g. effectStyle="shadow/resting/small").
+    // Applied after raw effects so the style wins; a missing name becomes a note.
+    return raw + `
+        try { await ${elementVar}.setEffectStyleIdAsync((await globalThis.__figHelpers.style(${JSON.stringify(String(props.effectStyle))})).id); }
+        catch (e) { globalThis.__figHelpers.note(e.message); }`;
+  }
+
+  generateRawEffectsCode(props, elementVar) {
     const effects = [];
     if (props.shadow) {
       const arr = Array.isArray(props.shadow) ? props.shadow : [props.shadow];
@@ -2488,6 +2686,24 @@ export class FigmaClient {
   /**
    * Generate stroke code - either hex color or bound variable
    */
+  /**
+   * tint="#hex" or tint="var:name" on an <Instance>: recolor the vector
+   * strokes and fills inside it (icon components). Without it an agent had to
+   * walk the instance in eval to color an icon per state.
+   */
+  generateTintCode(value, elementVar) {
+    const paint = this.isVarRef(value)
+      ? `(await (async () => { try { const v = await globalThis.__figHelpers.variable(${JSON.stringify(this.getVarName(value))}); return figma.variables.setBoundVariableForPaint({ type: 'SOLID', color: { r: 0, g: 0, b: 0 } }, 'color', v); } catch (e) { globalThis.__figHelpers.note(e.message); return null; } })())`
+      : `({ type: 'SOLID', color: ${this.hexToRgbCode(value)} })`;
+    return `{
+          const __tint = ${paint};
+          if (__tint) for (const v of ${elementVar}.findAllWithCriteria({ types: ['VECTOR', 'BOOLEAN_OPERATION', 'STAR', 'LINE', 'ELLIPSE', 'POLYGON'] })) {
+            if (Array.isArray(v.strokes) && v.strokes.length) v.strokes = [__tint];
+            if (Array.isArray(v.fills) && v.fills.length) v.fills = [__tint];
+          }
+        }`;
+  }
+
   generateStrokeCode(value, elementVar, strokeWidth = 1, strokeAlign = null) {
     const alignCode = strokeAlign ? ` ${elementVar}.strokeAlign = ${JSON.stringify(strokeAlign.toUpperCase())};` : '';
     if (this.isVarRef(value)) {

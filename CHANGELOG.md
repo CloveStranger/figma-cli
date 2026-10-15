@@ -1,6 +1,85 @@
 # Changelog
 
-## Unreleased
+## 2.2.5 (2026-09-26)
+
+### Fixed
+
+- The daemon is only restarted when it runs an older version than the CLI. With two installs of different versions (global and project-local) they no longer restart each other on every command; the newer daemon stays
+
+## 2.2.4 (2026-09-26)
+
+### Fixed
+
+- After an update the old background daemon kept serving `render-batch` and `eval` with the previous version's code until it idled out. The daemon now reports its version and figma-cli restarts it when it does not match
+- `render '<Instance component="Card" />'` and `render-batch` with instances place the instances directly on the page instead of failing with "must start with <Frame>"
+
+### Changed
+
+- The agent rules and the `eval` output limit point to `figma-cli verify <id> --scale 2` for a sharper screenshot
+
+## 2.2.3 (2026-09-26)
+
+### Added
+
+- `render --file ui.jsx` and `render-batch --file frames.json` read the JSX from a file, so long or generated layouts need no shell quoting
+- Text layers take `name="..."` and `decoration="strikethrough|underline"`
+- `<Text>` and `<Instance>` accept `position="absolute" x y` like frames do
+- Bare numbers such as `x=48` are read as numbers
+- `<Instance tint="#hex|var:name">` recolors the vectors inside an instance, for example an icon per state
+
+### Changed
+
+- Icons load with one request per icon set and are cached on disk in `~/.figma-ds-cli/icons`, so a flaky network no longer turns them into placeholders
+- When an icon cannot be loaded, render says so in a `note:` line instead of silently drawing a square
+- Frames with auto-layout keep strokes out of the layout, like the Figma editor. Children with `w="fill"` span the full width inside a bordered card
+
+## 2.2.2 (2026-09-25)
+
+### Added
+
+- Images from the web in `render`: `image="https://..."` on frames and rectangles and `<Image src="https://..." />`. figma-cli downloads the file itself, so it also works while a plugin with network restrictions is open in the file
+- A lone `<Rectangle ... />` is accepted as the outermost element of `render`
+- Text in a column with `items="center"` is centered automatically. `align` still wins
+- The daemon loads all pages in the background right after connecting, so the first command in a large file does not wait for page loading
+- The agent rules explain images and absolute positioning and clipping
+
+### Fixed
+
+- `<Image>` `<Rect>` `<Ellipse>` and `<Slot>` were dropped when a quoted value contained a `/` (for example a URL)
+- The live test scripts remove their pages when they finish
+
+## 2.2.1 (2026-09-25)
+
+### Added: new versions reach users without extra steps
+
+- figma-cli tells you once a day when a newer version is on npm, with the command to update. The hint goes to stderr so scripts that read stdout are not affected. Turn it off with `FIGMA_CLI_NO_UPDATE_CHECK=1`
+- `figma-cli connect` writes `AGENTS.md` into a project folder that has none yet (a folder with `.git` or `package.json` or `CLAUDE.md` or `.cursor`). It never writes into the home folder or a folder that is not a project
+
+## 2.2.0 (2026-09-25)
+
+### Added: AI agents finish Figma tasks in fewer calls
+
+- `render --page "Name"` and `render-batch --page "Name"` render on that page and create it when missing
+- `render` prints the structure it built (sizes and layout and padding and bound variables and which component each instance uses)
+- `<Instance component="Button" variant="size=large" text="Save" />` finds a component on any page and picks the variant and relabels it
+- `effectStyle="..."` on frames and `textStyle="..."` on text
+- `render-batch --variant-set Button` turns frames named `prop=value, prop=value` into one component set
+- `eval` helpers: `$page` `$var` `$bind` `$style` `$component` `$instance` `$fontSafe` `$describe`
+- Fonts that are not installed are swapped to Inter so instances can be relabelled and moved into frames
+- `init-agent` rules carry a version marker and `connect` refreshes an outdated AGENTS.md
+
+### Changed
+
+- `eval` output to a pipe is compact JSON capped at 20,000 characters. A terminal still gets indented JSON
+
+### Fixed
+
+- `pt` `pr` `pb` `pl` on the outermost frame were ignored
+- `instantiate` hung forever on a library key that was never published
+- The live roundtrip test left fixture pages in the connected file
+
+
+## 2.1.1 and 2.1.2 (2026-08-12)
 
 ### Fixed — auto-layout
 

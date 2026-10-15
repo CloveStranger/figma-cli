@@ -22,6 +22,9 @@ import { homedir, tmpdir } from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { wrapCodeIfNeeded } from './lib/eval-wrap.js';
 
+const DAEMON_ROOT = dirname(fileURLToPath(import.meta.url));
+const DAEMON_VERSION = (() => { try { return JSON.parse(readFileSync(join(DAEMON_ROOT, '..', 'package.json'), 'utf8')).version; } catch { return null; } })();
+
 // Hot-reload FigmaClient: copy to temp file and import (Node.js ES modules don't support cache busting)
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const figmaClientPath = join(__dirname, 'figma-client.js');
@@ -159,7 +162,9 @@ async function isCdpHealthy(forceCheck = false) {
 
   try {
     const result = await Promise.race([
-      cdpClient.eval('1'), // Simple eval, just check connection works
+      // Checks the Plugin API, not just the socket: after a file reload the
+      // socket is fine but the bound context has no `figma` any more.
+      cdpClient.eval('typeof figma === "object" && figma !== null && !!figma.root ? 1 : 0'),
       new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
     ]);
     lastHealthCheck = now;
@@ -209,6 +214,11 @@ async function getCdpClient() {
     lastHealthCheck = Date.now();
     lastHealthResult = true;
     console.log('[daemon] Connected to Figma via CDP (Yolo Mode)');
+    // File warming: Figma loads pages lazily, so the first command that looks
+    // beyond the current page waits for every page to load (seconds on a big
+    // design system). Start that load now, in the background, so it is done
+    // before the first real command arrives. Never awaited, never fatal.
+    cdpClient.eval('figma.loadAllPagesAsync().then(() => true)').catch(() => {});
   } finally {
     isCdpConnecting = false;
   }
@@ -355,6 +365,11 @@ async function handleRequest(req, res) {
       // FIGMA_FILE and rebinds when they diverge — otherwise commands silently
       // hit whichever file happened to be first when the daemon started.
       file: (cdpClient && cdpClient.pageTitle) || null,
+      // Which figma-cli code this daemon runs. After an update the old daemon
+      // would keep serving render-batch and eval with old code until it idles
+      // out; the CLI restarts it when these do not match its own.
+      version: DAEMON_VERSION,
+      root: DAEMON_ROOT,
       idleTimeoutMs: IDLE_TIMEOUT_MS
     }));
     return;
