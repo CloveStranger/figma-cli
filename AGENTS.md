@@ -1,6 +1,6 @@
 # figma-ds-cli Agent Guide
 
-Use this file as a router, not as the full manual. Command usage has been split into command-group skills under `skills/`.
+Use this file as a router, not as the full manual. The single top-level `figma-cli` skill routes to command-group guides under `skills/figma-cli/references/`.
 
 ## Global Rules
 
@@ -19,20 +19,20 @@ Use this file as a router, not as the full manual. Command usage has been split 
 
 ## Skill Index
 
-Use the skill whose trigger matches the user's request.
+Read `skills/figma-cli/SKILL.md` first, then load only the matching `GUIDE.md` file.
 
 | Need | Skill |
 |---|---|
-| Connect to Figma, choose Yolo/Browser/Safe mode, or target an open file | `skills/figma-connect/SKILL.md` |
-| Create token sets like shadcn, tailwind, DS | `skills/figma-tokens/SKILL.md` |
-| List, visualize, bind, update, extract, or roundtrip variables | `skills/figma-variables/SKILL.md` |
-| Create dashboards or prebuilt layouts | `skills/figma-blocks/SKILL.md` |
-| Create primitives, render JSX, build frames/components | `skills/figma-render/SKILL.md` |
-| Inspect canvas, find nodes, convert nodes, inspect tree/bindings, reuse existing components | `skills/figma-node/SKILL.md` |
-| Create and manage Figma slots | `skills/figma-slot/SKILL.md` |
-| Validate visual output with screenshots and measurements | `skills/figma-verify/SKILL.md` |
-| Create/check design-system snapshots, rules, drift, or roundtrip contracts | `skills/figma-validation/SKILL.md` |
-| Export PNG/SVG/JPG/PDF assets, DESIGN.md, export settings subtrees, CSS, Tailwind, DTCG, JSX, Storybook | `skills/figma-export/SKILL.md` |
+| Connect to Figma, choose Yolo/Browser/Safe mode, or target an open file | `skills/figma-cli/references/figma-connect/GUIDE.md` |
+| Create token sets like shadcn, tailwind, DS | `skills/figma-cli/references/figma-tokens/GUIDE.md` |
+| List, visualize, bind, update, extract, or roundtrip variables | `skills/figma-cli/references/figma-variables/GUIDE.md` |
+| Create dashboards or prebuilt layouts | `skills/figma-cli/references/figma-blocks/GUIDE.md` |
+| Create primitives, render JSX, build frames/components | `skills/figma-cli/references/figma-render/GUIDE.md` |
+| Inspect canvas, find nodes, convert nodes, inspect tree/bindings, reuse existing components | `skills/figma-cli/references/figma-node/GUIDE.md` |
+| Create and manage Figma slots | `skills/figma-cli/references/figma-slot/GUIDE.md` |
+| Validate visual output with screenshots and measurements | `skills/figma-cli/references/figma-verify/GUIDE.md` |
+| Create/check design-system snapshots, rules, drift, or roundtrip contracts | `skills/figma-cli/references/figma-validation/GUIDE.md` |
+| Export PNG/SVG/JPG/PDF assets, DESIGN.md, export settings subtrees, CSS, Tailwind, DTCG, JSX, Storybook | `skills/figma-cli/references/figma-export/GUIDE.md` |
 
 ## Quick Routing
 
@@ -73,4 +73,4 @@ Use the skill whose trigger matches the user's request.
 ## Reference
 
 - Full command reference: `REFERENCE.md`
-- Skill details: `skills/*/SKILL.md`
+- Skill details: `skills/figma-cli/references/*/GUIDE.md`

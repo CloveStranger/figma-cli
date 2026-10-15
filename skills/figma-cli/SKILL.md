@@ -3,22 +3,24 @@ name: figma-cli
 description: Route broad Figma Desktop work to the focused figma-ds-cli skills for connection, rendering, nodes and variants, tokens, variables, slots, export, visual verification, or deterministic validation
 ---
 
-# Figma CLI Router
+# Figma CLI Suite
 
 Use the installed `figma-ds-cli` executable directly. Do not depend on shell aliases.
 
+This is the only top-level Figma CLI skill. Its focused guides live in `references/` as `GUIDE.md` files and are loaded only after routing.
+
 ## Route by Intent
 
-- Connection modes, status, or selecting an open file: [figma-connect](../figma-connect/SKILL.md)
-- Prebuilt dashboards and page blocks: [figma-blocks](../figma-blocks/SKILL.md)
-- JSX, primitives, rich text, layout, or custom components: [figma-render](../figma-render/SKILL.md)
-- Canvas inspection, reuse, conversion, or variant sets: [figma-node](../figma-node/SKILL.md)
-- Token presets: [figma-tokens](../figma-tokens/SKILL.md)
-- Variable binding and shared-library roundtrips: [figma-variables](../figma-variables/SKILL.md)
-- Native component slots: [figma-slot](../figma-slot/SKILL.md)
-- Assets, DESIGN.md, token files, JSX, or Storybook export: [figma-export](../figma-export/SKILL.md)
-- Screenshot and measurement QA: [figma-verify](../figma-verify/SKILL.md)
-- Design-system snapshots, component rules, drift, and roundtrip checks: [figma-validation](../figma-validation/SKILL.md)
+- Connection modes, status, or selecting an open file: [figma-connect](references/figma-connect/GUIDE.md)
+- Prebuilt dashboards and page blocks: [figma-blocks](references/figma-blocks/GUIDE.md)
+- JSX, primitives, rich text, layout, or custom components: [figma-render](references/figma-render/GUIDE.md)
+- Canvas inspection, reuse, conversion, or variant sets: [figma-node](references/figma-node/GUIDE.md)
+- Token presets: [figma-tokens](references/figma-tokens/GUIDE.md)
+- Variable binding and shared-library roundtrips: [figma-variables](references/figma-variables/GUIDE.md)
+- Native component slots: [figma-slot](references/figma-slot/GUIDE.md)
+- Assets, DESIGN.md, token files, JSX, or Storybook export: [figma-export](references/figma-export/GUIDE.md)
+- Screenshot and measurement QA: [figma-verify](references/figma-verify/GUIDE.md)
+- Design-system snapshots, component rules, drift, and roundtrip checks: [figma-validation](references/figma-validation/GUIDE.md)
 
 Read only the focused skill needed for the request.
 
