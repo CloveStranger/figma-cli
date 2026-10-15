@@ -43,6 +43,9 @@ Read `skills/figma-cli/SKILL.md` first, then load only the matching `GUIDE.md` f
 - "add tailwind colors" -> `figma-ds-cli tokens tailwind`
 - "show colors on canvas" -> `figma-ds-cli var visualize`
 - "create dashboard" -> `figma-ds-cli blocks create dashboard-01`
+- "render long JSX or a JSON batch from disk" -> `figma-ds-cli render --file ui.jsx` / `render-batch --file frames.json`
+- "build on page X" -> `figma-ds-cli render --page "X" '<Frame>...</Frame>' --verify`
+- "create a new component set" -> `figma-ds-cli render-batch --file frames.json --variant-set Button --verify`
 - "create a rectangle/frame" -> `figma-ds-cli render '<Frame>...</Frame>' --verify`
 - "create multiple independent cards/buttons" -> `figma-ds-cli render-batch '[...]' --direction row --verify`
 - "convert to component" -> `figma-ds-cli node to-component "ID"`

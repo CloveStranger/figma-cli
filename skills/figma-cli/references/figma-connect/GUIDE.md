@@ -53,3 +53,10 @@ Confirm the target with a read-only command before mutating the canvas.
 - `render` and `render-batch` support text in Safe Mode.
 - If a complex `render-batch` times out, split it into smaller renders.
 - Use native Figma API via `eval` only when JSX cannot express the needed operation.
+
+## Updates and Project Rules
+
+- `connect` refreshes the managed figma-cli blocks in existing `AGENTS.md` and `.cursor/rules/figma-cli.mdc`, preserving surrounding text. In a recognized project without `AGENTS.md`, it creates that file; an unrelated existing `AGENTS.md` stays intact. Run it from the intended project directory.
+- `init-agent --tool claude|cursor|both` explicitly writes or refreshes those rules. `--force` can overwrite unrelated content; use it only when that replacement is authorized.
+- After a CLI upgrade, commands restart an older daemon automatically. A daemon newer than the invoking CLI is kept, avoiding restarts between global and project-local installs.
+- A newer npm version is announced on stderr at most once a day. Set `FIGMA_CLI_NO_UPDATE_CHECK=1` to disable this check.

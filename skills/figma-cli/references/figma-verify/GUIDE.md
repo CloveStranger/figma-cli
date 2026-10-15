@@ -25,6 +25,7 @@ figma-ds-cli verify "123:456"
 figma-ds-cli verify "123:456" --measure
 figma-ds-cli verify "123:456" --measure --save /tmp/figma-verify.png
 figma-ds-cli verify "123:456" --scale 1 --max 2000
+figma-ds-cli verify "123:456" --scale 2 --measure
 figma-ds-cli verify "123:456" --base64
 ```
 
@@ -33,6 +34,7 @@ figma-ds-cli verify "123:456" --base64
 - Always verify after creating or converting visual nodes.
 - Use `--measure` for layout-sensitive checks so width, height, layout mode, and child sizing are checked by numbers.
 - `verify` saves a PNG to `/tmp/figma-verify-{id}.png` by default and returns metadata plus the saved path.
+- The default scale is a small 0.5x preview. Use `--scale 2` when details need a sharper screenshot.
 - Use `--save <path>` only to choose a custom path.
 - Use `--base64` only when a script truly needs inline image data; it is token-heavy.
 - Use verification previews to decide the correct export boundary.

@@ -53,6 +53,7 @@ When a DESIGN.md was produced by `figma-ds-cli extract`, components may include 
 
 ## Variant Sets
 
+- To create new variants in one call, use `render-batch --file frames.json --variant-set Button`; every JSX frame needs a unique `axis=value, axis=value` name with the same axes. Keep `variants from` for combining existing nodes.
 - For one axis, pass the property and one value per node with `--property` and `--values`.
 - For multiple axes, name each top-level component `prop=value, prop2=value2`, then use `variants from selection --multi` or `variants from auto --multi`.
 - `auto` selects page-level nodes already named as variant combinations. Use it only when that scope is intentional.
@@ -64,3 +65,14 @@ When a DESIGN.md was produced by `figma-ds-cli extract`, components may include 
 - After `figma-ds-cli node to-component`, run `figma-ds-cli verify "NODE_ID" --measure`.
 - Use tree and bindings inspection before modifying a complex existing node.
 - Do not read huge DESIGN.md structure sections by hand when `figma-ds-cli spec` can return the compact authoritative component spec.
+
+## Compact Plugin API Reads
+
+For queries that the inspection commands cannot express, `eval --file query.js` supports top-level await and these helpers:
+
+- `$page(name)` switches to a page and creates it if missing; it changes the file and is not a read-only page lookup.
+- `$var(name)` finds a local variable; `$style(name)` finds a local style; `$component(nameOrId)` finds a component or set across pages.
+- `$describe(node)` returns a compact subtree summary. `$fontSafe(node)` can replace missing fonts, so use it only in an authorized edit.
+- `$bind(node, variableName, field)` binds a variable; `$instance(nameOrId, 'axis=value', {text, parent})` creates an instance. Prefer JSX for visual creation; reserve these mutation helpers for native API operations the render workflow cannot express.
+
+Use async Plugin API lookups and load all pages before a raw search beyond the current page. Return only the requested counts, names, or ids. Piped eval output is compact and cut after 20,000 characters; narrow the query rather than relying on truncated JSON.

@@ -27,6 +27,9 @@ figma-ds-cli render '<Frame name="Card">...</Frame>' --as-component --verify
 figma-ds-cli render '<Frame bg="var:card">...</Frame>' --collection figma --verify
 figma-ds-cli render-batch '["<Frame ... />","<Frame ... />"]' -d row -g 40 --verify
 figma-ds-cli render-batch '["<Frame ... />","<Frame ... />"]' --as-component --collection figma
+figma-ds-cli render --file ui.jsx --page "Scratch" --verify
+figma-ds-cli render-batch --file frames.json --page "Scratch" --variant-set Button --verify
+figma-ds-cli render '<Instance component="Card" />' --verify
 figma-ds-cli spec "Button"
 figma-ds-cli instantiate "Button"
 ```
@@ -49,6 +52,10 @@ figma-ds-cli arrange -g 100
 
 ## High-Value Options
 
+- Use `--file <path>` for long or generated input. `render` reads JSX; `render-batch` reads a JSON array of JSX strings.
+- Use `--page <name>` to select the destination page; it creates the page if missing.
+- Use `--variant-set <name>` on `render-batch` to create one component set. Give every input frame a unique `axis=value, axis=value` name with the same axes.
+- Read the printed structure summary and `note:` lines for missing fonts, styles, variants, or icons. Keep visual verification; avoid a separate full tree readback when the summary answers the question.
 - Use `--verify` to replace a separate `figma-ds-cli verify` roundtrip.
 - Use `--as-component` when the rendered frame should immediately become a component.
 - Use `--collection <name>` when the user names a variable collection or brand system.
@@ -61,6 +68,24 @@ If a DESIGN.md exists and the user asks for a component that may already be in t
 1. Run `figma-ds-cli spec "Name"` to find the authoritative spec and reuse handle.
 2. If the user wants to use or add the existing component, run `figma-ds-cli instantiate "Name"`.
 3. If the user explicitly wants a rebuilt version, render it and then run `figma-ds-cli spec "Name" --check "NODE_ID"`.
+
+## Instances, Styles, and Images
+
+```jsx
+<Frame name="Card" flex="col" w={320} p={24} effectStyle="shadow/small">
+  <Text textStyle="Body/Medium">Title</Text>
+  <Instance component="Button" variant="size=large" text="Save" />
+  <Instance component="Icon" tint="var:accent" />
+  <Image src="https://example.com/photo.png" w={272} h={160} />
+</Frame>
+```
+
+- `<Instance component="NameOrId">` finds components across pages; unspecified variant axes use the default variant. `text` relabels the first text layer, and `tint` recolors vectors inside the instance.
+- A standalone `<Instance ... />` or `<Rectangle ... />` can be the render root; a wrapper frame is unnecessary.
+- Named `textStyle` and `effectStyle` use local styles. Missing fonts fall back to Inter and are reported in `note:` lines.
+- Use `image="https://..." imageScale="fill|fit"` on frames or rectangles, or `<Image src="https://..." />`. The CLI downloads images outside the plugin network context.
+- For overlays, use `position="absolute" x={0} y={0}` on a child, including text or instances. Use `overflow="hidden"` on the frame when children should clip to its boundary.
+- Icons are fetched per set and cached in `~/.figma-ds-cli/icons`. An icon load failure produces a `note:`; inspect the result before accepting it.
 
 ## Safe Mode Rule
 
@@ -82,3 +107,6 @@ If a DESIGN.md exists and the user asks for a component that may already be in t
 - Inline runs support `<b>` / `<strong>`, `<em>` / `<i>`, `<u>`, and `<span weight= italic= color= size= letterSpacing=>`. Inline `color` accepts hex values.
 - Numeric and common named HTML entities are decoded. Formatting whitespace inside `<Text>` collapses and outer whitespace is trimmed.
 - If the runtime reports a fill child inside a parent that hugs the same axis with no sizing sibling, fix the circular layout instead of silencing the warning.
+- Text supports `name="Layer name"` and `decoration="strikethrough|underline"`. In a column with `items="center"`, text aligns centrally unless `align` is explicit.
+- Bare numeric attributes such as `x=48` are accepted; brace syntax remains suitable for generated JSX.
+- Auto-layout frames keep strokes outside layout calculations, so fill children span the available inner width.
